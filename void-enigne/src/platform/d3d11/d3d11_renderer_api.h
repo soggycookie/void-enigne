@@ -42,18 +42,18 @@ namespace VoidEngine
     public:
         struct InputLayoutKey
         {
-            size_t vertexFormatHash;
+            size_t vertexDescHash;
             ResourceGUID shader;
 
             bool operator==(const InputLayoutKey& other) const
             {
-                return (vertexFormatHash == other.vertexFormatHash)
+                return (vertexDescHash == other.vertexDescHash)
                     && (shader == other.shader);
             }
 
             bool operator!=(const InputLayoutKey& other) const
             {
-                return (vertexFormatHash != other.vertexFormatHash)
+                return (vertexDescHash != other.vertexDescHash)
                     || (shader != other.shader);
             }
         };
@@ -63,7 +63,6 @@ namespace VoidEngine
 
         void Clear() override;
         bool Init(int width, int height, void* outputWindow) override;
-        void Update() override;
 
         void NewFrame() override;
 
@@ -84,15 +83,9 @@ namespace VoidEngine
 
         void Draw(MeshResource* mesh, MaterialResource* material) override;
     private:
-        void SetUpDemo();
 
-        
-        ID3D11PixelShader* m_pixelShader;
-        ID3D11VertexShader* m_vertexShader;
-        ID3D11Buffer* m_boxVertexBuffer;
-        ID3D11Buffer* m_boxIndexBuffer;
-        ID3D11InputLayout* m_inputLayout;
-
+        ID3D11InputLayout* CreateInputLayout(const VertexDescriptor* vd, size_t count, ID3DBlob* compiledVertexSrc);
+    
     private:
         D3D11_Context m_context;
         FlatHashMap<InputLayoutKey, ID3D11InputLayout*> m_inputLayouts;
@@ -105,7 +98,7 @@ namespace std {
         size_t operator()(const VoidEngine::D3D11_RendererAPI::InputLayoutKey& key) const
         {
             size_t h1 = hash<size_t>{}(key.shader);
-            size_t h2 = key.vertexFormatHash;
+            size_t h2 = key.vertexDescHash;
 
             return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
         }

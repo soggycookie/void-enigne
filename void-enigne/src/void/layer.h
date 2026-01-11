@@ -10,7 +10,7 @@ namespace VoidEngine
         Layer() = default;
 
         virtual ~Layer() = default;
-        
+        virtual void OnInit() = 0;
         virtual void OnDetach() = 0;
         virtual void OnAttach() = 0;
         

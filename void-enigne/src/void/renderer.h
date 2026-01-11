@@ -23,8 +23,6 @@ namespace VoidEngine
             return s_rendererAPI->GetContext();
         }
 
-        static void Update();
-
         static void NewFrame();
         static void EndFrame();
         

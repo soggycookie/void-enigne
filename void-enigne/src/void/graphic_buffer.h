@@ -19,24 +19,32 @@ namespace VoidEngine
         {
         }
 
+        GraphicBuffer(const GraphicBuffer& other) = delete;
+        
         virtual ~GraphicBuffer() = default;
 
-        GraphicBuffer& operator=(GraphicBuffer& buffer) = delete;
-        GraphicBuffer& operator=(GraphicBuffer&& buffer) = delete;
+        GraphicBuffer& operator=(GraphicBuffer& other) = delete;
+        GraphicBuffer& operator=(GraphicBuffer&& other) = delete;
         
         BufferType GetType() const
         {
             return m_bufferType;
         }
 
-        template<typename T>
-        T As()
-        {
-            return static_cast<T>(m_nativeHandle);
-        }
 
         void SubmitToGpu(void* const data, size_t byteSize);
         void Destroy();
+    
+    private:
+#if defined (_WIN32) || defined(_MSC_VER)
+        friend class D3D11_RendererAPI;
+#endif
+    
+        template<typename T>
+        T As() const
+        {
+            return static_cast<T>(m_nativeHandle);
+        }
 
     private:
         void* m_nativeHandle;

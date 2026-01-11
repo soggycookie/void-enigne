@@ -6,11 +6,12 @@ namespace VoidEngine
     MeshResource::MeshResource(ResourceGUID guid, bool canCpuRead)
         : m_guid(guid), m_vertexData(nullptr), m_vertexCount(0),
         m_indexData(nullptr), m_indexCount(0),
-        m_descriptor(nullptr), m_descriptorCount(0),
         m_vertexBuffer(nullptr, BufferType::VERTEX_BUFFER),
         m_indexBuffer(nullptr, BufferType::INDEX_BUFFER),
         m_canCpuRead(canCpuRead), m_isSetVertexDesc(false),
-        m_isSubmitted(false)
+        m_isSubmitted(false), m_descriptor(DEFAULT_VERTEX_DESC),
+        m_descriptorCount(DEFAULT_VERTEX_DESC_COUNT), 
+        m_descriptorHash(DEFAULT_VERTEX_DESC_HASH)
     {
     }
 
@@ -20,11 +21,12 @@ namespace VoidEngine
                                bool canCpuRead)
         : m_guid(guid), m_vertexData(vertexData), m_vertexCount(vertexCount),
         m_indexData(indexData), m_indexCount(indexCount),
-        m_descriptor(nullptr), m_descriptorCount(0),
         m_vertexBuffer(nullptr, BufferType::VERTEX_BUFFER),
         m_indexBuffer(nullptr, BufferType::INDEX_BUFFER),
         m_canCpuRead(canCpuRead), m_isSetVertexDesc(false),
-        m_isSubmitted(false)
+        m_isSubmitted(false), m_descriptor(DEFAULT_VERTEX_DESC),
+        m_descriptorCount(DEFAULT_VERTEX_DESC_COUNT), 
+        m_descriptorHash(DEFAULT_VERTEX_DESC_HASH)
     {
     }
 
@@ -47,9 +49,12 @@ namespace VoidEngine
         m_indexBuffer.SubmitToGpu(m_indexData, sizeof(uint32_t) * m_indexCount);
     }
 
-    void MeshResource::SetVertexDescriptor(VertexDescriptor* descriptors, size_t count)
+    void MeshResource::SetVertexDesc(VertexDescriptor* descriptors, size_t count)
     {
-            
+        m_descriptor = descriptors;
+        m_descriptorCount = count;
+
+        m_descriptorHash = HashVertexDesc(m_descriptor, m_descriptorCount);    
     }
 
     ShaderResource::ShaderResource(ResourceGUID guid)
@@ -84,11 +89,11 @@ namespace VoidEngine
 
 
     MaterialResource::MaterialResource(ResourceGUID guid, ResourceGUID shader)
-        : m_guid(guid), m_shader(shader)
+        : m_guid(guid), m_shader(nullptr)
     {
-        auto rsrc = ResourceSystem::Acquire<ShaderResource>(m_shader);
+        m_shader = ResourceSystem::Acquire<ShaderResource>(shader);
 
-        if(!rsrc)
+        if(!m_shader)
         {
             std::cerr << "[Resource.Material] Shader does not exist!" << std::endl;
             //acquire default shader
@@ -97,7 +102,7 @@ namespace VoidEngine
 
     MaterialResource::~MaterialResource()
     {
-        ResourceSystem::Release<ShaderResource>(m_shader);
+        ResourceSystem::Release<ShaderResource>(m_shader->GetGUID());
     }
 
 }

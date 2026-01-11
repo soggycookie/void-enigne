@@ -34,14 +34,18 @@ namespace VoidEngine
             return m_type;
         }
 
+    private:
+#if defined (_WIN32) || defined(_MSC_VER)
+        friend class D3D11_RendererAPI;
+#endif
         template<typename T>
-        T As()
+        T As() const
         {
             return static_cast<T>(m_nativeHandle);
         }
         
         template<typename T>
-        T CompiledSrcAs()
+        T CompiledSrcAs() const
         {
             return static_cast<T>(m_compiledSrc);
         }

@@ -37,7 +37,7 @@ namespace VoidEngine
         DirectX::XMFLOAT2 uv;
     };
 
-    enum class TypeFormat
+    enum class TypeFormat : uint16_t
     {
         FORMAT_R32G32B32A32_FLOAT,
         FORMAT_R32G32B32_FLOAT,
@@ -55,19 +55,57 @@ namespace VoidEngine
         FORMAT_R32_UINT,
     };
 
-    struct VertexDescriptor
+    enum class VertexSemantic : uint16_t
     {
-        std::string semantic;
-        uint32_t semanticIndex;
-        size_t offset;
-        TypeFormat format;
+        POSITION,
+        TEXCOORD,
     };
 
-    const VertexDescriptor defaultVertexDesc[] = 
+    struct VertexDescriptor
     {
-        {"POSITION", 0, 0, TypeFormat::FORMAT_R32G32B32A32_FLOAT},
-        {"TEXCOORD", 0, 16, TypeFormat::FORMAT_R32G32_FLOAT}
+        VertexSemantic semanticName;
+        uint16_t semanticIndex;
+        uint16_t inputSlot;
+        TypeFormat format;
+        uint32_t offset;
     };
+
+    static size_t HashVertexDesc(const VertexDescriptor* vd, uint32_t count)
+    {
+        // 64-bit FNV-1a
+        size_t hash = 1469598103934665603ULL;
+
+        auto mix = [&](size_t v)
+        {
+            hash ^= v;
+            hash *= 1099511628211ULL;
+        };
+
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            mix(static_cast<size_t>(vd[i].semanticName));
+            mix(static_cast<size_t>(vd[i].semanticIndex));
+            mix(static_cast<size_t>(vd[i].inputSlot));
+            mix(static_cast<size_t>(vd[i].offset));
+            mix(static_cast<size_t>(vd[i].format));
+        }
+
+        return hash;
+    }
+
+    constexpr VertexDescriptor defaultQuadVertexDesc[] = 
+    {
+        {VertexSemantic::POSITION, 0, 0, TypeFormat::FORMAT_R32G32B32A32_FLOAT, 0},
+        {VertexSemantic::TEXCOORD, 0, 0, TypeFormat::FORMAT_R32G32_FLOAT, 16}
+    };
+
+
+#define DEFAULT_VERTEX_DESC defaultQuadVertexDesc
+#define DEFAULT_VERTEX_DESC_COUNT 2
+    
+    const size_t defaultVertexDescHash = HashVertexDesc(DEFAULT_VERTEX_DESC, DEFAULT_VERTEX_DESC_COUNT);
+
+#define DEFAULT_VERTEX_DESC_HASH defaultVertexDescHash
 
     class ShaderResource
     {
@@ -81,6 +119,16 @@ namespace VoidEngine
         const ResourceGUID& GetGUID()
         {
             return m_guid;
+        }
+
+        const GraphicShader& GetVertexShader() const
+        {
+            return m_vertexShader;
+        }
+        
+        const GraphicShader& GetPixelShader() const
+        {
+            return m_pixelShader;
         }
 
     private:
@@ -118,10 +166,14 @@ namespace VoidEngine
             return m_guid;
         }
 
+        const ShaderResource* GetShader() const
+        {
+            return m_shader;
+        }
+
     private:
         ResourceGUID m_guid;
-        ResourceGUID m_shader;
-
+        ShaderResource* m_shader;
     };
 
     class MeshResource
@@ -155,14 +207,51 @@ namespace VoidEngine
             m_indexCount = indexCount;
         }
 
+        uint32_t GetIndexCount() const
+        {
+            return m_indexCount;
+        }
+        
+        uint32_t GetVertexCount() const
+        {
+            return m_vertexCount;
+        }
+
         void SubmitMeshToGpu();
 
-        void SetVertexDescriptor(VertexDescriptor* descriptors, size_t count);
-    
+        void SetVertexDesc(VertexDescriptor* descriptors, size_t count);
+        
+        const GraphicBuffer& GetVertexGraphicBuffer() const
+        {
+            return m_vertexBuffer;
+        } 
+        
+        const GraphicBuffer& GetIndexGraphicBuffer() const
+        {
+            return m_indexBuffer;
+        } 
+
+        const VertexDescriptor* GetVertexDesc() const
+        {
+            return m_descriptor;
+        }
+
+        size_t GetVertexDescCount() const
+        {
+            return m_descriptorCount;
+        }
+
+        size_t GetVertexDescHash() const
+        {
+            return m_descriptorHash;
+        }
+
     private:
         friend class ResourceCache;
 
         ~MeshResource();
+
+
 
     private:
         ResourceGUID m_guid;
@@ -172,8 +261,9 @@ namespace VoidEngine
         uint32_t* m_indexData;
         size_t m_indexCount;
         
-        VertexDescriptor* m_descriptor;
+        const VertexDescriptor* m_descriptor;
         size_t m_descriptorCount;
+        size_t m_descriptorHash;
 
         GraphicBuffer m_vertexBuffer;
         GraphicBuffer m_indexBuffer;

@@ -9,7 +9,6 @@ namespace VoidEngine
     public:
         virtual void Clear() = 0;
         virtual bool Init(int width, int height, void* outputWindow) = 0;
-        virtual void Update() = 0;
 
         virtual void NewFrame() = 0;
         virtual void EndFrame() = 0;

@@ -16,8 +16,7 @@ namespace VoidEngine
 
     D3D11_RendererAPI::D3D11_RendererAPI()
         : m_inputLayouts(MemorySystem::GeneralAllocator())
-    {
-    
+    {    
     }
 
     void D3D11_RendererAPI::NewFrame()
@@ -262,7 +261,6 @@ namespace VoidEngine
         //}
         //m_property.device->CreateInputLayout(vertexLayout1, 1, , , &inputLayout);
 
-        SetUpDemo();
 
         return true;
     }
@@ -318,105 +316,6 @@ namespace VoidEngine
         {
             buf->Release();
         }
-    }
-
-    void D3D11_RendererAPI::SetUpDemo()
-    {
-        ScreenVertex quadVertices[] =
-        {
-            //   position (x, y, z, w)       uv
-            { { -1.0f,  1.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }, // top-left
-            { {  1.0f,  1.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }, // top-right
-            { {  1.0f, -1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } }, // bottom-right
-            { { -1.0f, -1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } }  // bottom-left
-        };
-
-        uint16_t quadIndices[] =
-        {
-            0, 1, 2,
-            0, 2, 3
-        };
-
-        D3D11_BUFFER_DESC vbDesc;
-        vbDesc.ByteWidth = sizeof(quadVertices);
-        vbDesc.Usage = D3D11_USAGE_IMMUTABLE;
-        vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        vbDesc.CPUAccessFlags = 0;
-        vbDesc.MiscFlags = 0;
-        vbDesc.StructureByteStride = 0;
-
-        D3D11_SUBRESOURCE_DATA vbRsc;
-        ZeroMemory(&vbRsc, sizeof(D3D11_SUBRESOURCE_DATA));
-        vbRsc.pSysMem = quadVertices;
-
-        ASSERT_HR(m_context.device->CreateBuffer(&vbDesc, &vbRsc, &m_boxVertexBuffer));
-        D3D11_BUFFER_DESC ibDesc;
-        ibDesc.ByteWidth = sizeof(quadIndices);
-        ibDesc.Usage = D3D11_USAGE_IMMUTABLE;
-        ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        ibDesc.CPUAccessFlags = 0;
-        ibDesc.MiscFlags = 0;
-        ibDesc.StructureByteStride = 0;
-
-        D3D11_SUBRESOURCE_DATA ibRsc;
-        ZeroMemory(&ibRsc, sizeof(D3D11_SUBRESOURCE_DATA));
-        ibRsc.pSysMem = quadIndices;
-
-        ASSERT_HR(m_context.device->CreateBuffer(&ibDesc, &ibRsc, &m_boxIndexBuffer));
-
-        const wchar_t* shaderFilePath = L"src//asset//shader//platform//d3d11//square_demo.hlsl"; 
-        ID3DBlob* compiledVertex = static_cast<ID3DBlob*>(CompileShader(shaderFilePath, "VSMain", "vs_5_0"));
-        ID3DBlob* compiledPixel = static_cast<ID3DBlob*>(CompileShader(shaderFilePath, "PSMain", "ps_5_0"));
-
-        m_context.device->CreateVertexShader(
-            compiledVertex->GetBufferPointer(),
-            compiledVertex->GetBufferSize(),
-            nullptr,
-            &m_vertexShader
-        );
-        
-        m_context.device->CreatePixelShader(
-            compiledPixel->GetBufferPointer(),
-            compiledPixel->GetBufferSize(),
-            nullptr,
-            &m_pixelShader
-        );
-
-        D3D11_INPUT_ELEMENT_DESC layout[] =
-        {
-            {"POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0 ,D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0}
-        };
-
-        ASSERT_HR(m_context.device->CreateInputLayout(
-            layout, 2, 
-            compiledVertex->GetBufferPointer(), 
-            compiledVertex->GetBufferSize(), 
-            &m_inputLayout
-        ));
-       
-        compiledVertex->Release();
-        compiledPixel->Release();
-    }
-
-    void D3D11_RendererAPI::Update()
-    {
-        NewFrame();
-        
-        m_context.deviceContext->IASetInputLayout(m_inputLayout);
-        m_context.deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-        UINT stride = sizeof(float) * 6;
-        UINT offset = 0;
-        m_context.deviceContext->IASetVertexBuffers(0, 1, &m_boxVertexBuffer, &stride, &offset);
-        m_context.deviceContext->IASetIndexBuffer(m_boxIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
-
-        m_context.deviceContext->VSSetShader(m_vertexShader, nullptr, 0);
-        m_context.deviceContext->PSSetShader(m_pixelShader , nullptr, 0);
-
-        m_context.deviceContext->DrawIndexed(6, 0, 0);
-
-        EndFrame();
     }
 
     void D3D11_RendererAPI::Clear()
@@ -533,10 +432,130 @@ namespace VoidEngine
         }
     }
 
+    static const char* ConvertToD3D11Semantic(VertexSemantic semantic)
+    {
+        switch(semantic)
+        {
+            case VertexSemantic::POSITION:
+                return "POSITION";
+            case VertexSemantic::TEXCOORD:
+                return "TEXCOORD";
+            default:
+                return nullptr;
+        }
+
+        return nullptr;
+    }
+
+    static DXGI_FORMAT ConvertToD3D11Format(TypeFormat format)
+    {
+        switch(format)
+        {
+            case TypeFormat::FORMAT_R32G32B32A32_FLOAT:
+                return DXGI_FORMAT_R32G32B32A32_FLOAT;
+            case TypeFormat::FORMAT_R32G32B32_FLOAT:
+                return DXGI_FORMAT_R32G32B32_FLOAT;
+            case TypeFormat::FORMAT_R32G32_FLOAT:
+                return DXGI_FORMAT_R32G32_FLOAT;
+            case TypeFormat::FORMAT_R32_FLOAT:
+                return DXGI_FORMAT_R32_FLOAT;
+
+            case TypeFormat::FORMAT_R32G32B32A32_INT:
+                return DXGI_FORMAT_R32G32B32A32_SINT;
+            case TypeFormat::FORMAT_R32G32B32_INT:
+                return DXGI_FORMAT_R32G32B32_SINT;
+            case TypeFormat::FORMAT_R32G32_INT:
+                return DXGI_FORMAT_R32G32_SINT;
+            case TypeFormat::FORMAT_R32_INT:
+                return DXGI_FORMAT_R32_SINT;
+
+            case TypeFormat::FORMAT_R32G32B32A32_UINT:
+                return DXGI_FORMAT_R32G32B32A32_UINT;
+            case TypeFormat::FORMAT_R32G32B32_UINT:
+                return DXGI_FORMAT_R32G32B32_UINT;
+            case TypeFormat::FORMAT_R32G32_UINT:
+                return DXGI_FORMAT_R32G32_UINT;
+            case TypeFormat::FORMAT_R32_UINT:
+                return DXGI_FORMAT_R32_UINT;
+        }
+    }
+
+    ID3D11InputLayout* D3D11_RendererAPI::CreateInputLayout(const VertexDescriptor* vd, size_t count, ID3DBlob* compiledVertexSrc)
+    {
+        D3D11_INPUT_ELEMENT_DESC* inputDesc = static_cast<D3D11_INPUT_ELEMENT_DESC*>(MemorySystem::GeneralAllocator()->Alloc(count * sizeof(D3D11_INPUT_ELEMENT_DESC)));
+        
+        for(size_t i = 0; i < count;i++)
+        {
+            D3D11_INPUT_ELEMENT_DESC desc;
+            desc.AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+            desc.InstanceDataStepRate = 0;
+            desc.SemanticName = ConvertToD3D11Semantic(vd[i].semanticName);
+            desc.SemanticIndex = vd[i].semanticIndex;
+            desc.InputSlot = vd[i].inputSlot;
+            desc.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+            desc.Format = ConvertToD3D11Format(vd[i].format);
+
+            inputDesc[i] = desc;
+        }
+
+        ID3D11InputLayout* inputLayout = nullptr;
+
+        HRESULT hr = m_context.device->CreateInputLayout(
+            inputDesc, count,
+            compiledVertexSrc->GetBufferPointer(),
+            compiledVertexSrc->GetBufferSize(),
+            &inputLayout
+        );
+        
+        MemorySystem::GeneralAllocator()->Free(inputDesc);
+
+        return inputLayout;
+    }
+
     void D3D11_RendererAPI::Draw(MeshResource* mesh, MaterialResource* material)
     {
-        //mesh has vertex descriptor
+        auto shader = material->GetShader();
+        auto vertexShader = shader->GetVertexShader().As<ID3D11VertexShader*>();
+        auto pixelShader = shader->GetPixelShader().As<ID3D11PixelShader*>();
+        auto compiledVertexSrc = shader->GetVertexShader().CompiledSrcAs<ID3DBlob*>();
 
+        InputLayoutKey key = {mesh->GetVertexDescHash(), material->GetGUID()};
+        ID3D11InputLayout* layout = nullptr;
+        if(m_inputLayouts.ContainsKey(key))
+        {
+            layout = m_inputLayouts[key];
+        }
+        else
+        {
+            layout = CreateInputLayout(mesh->GetVertexDesc(), mesh->GetVertexDescCount(), compiledVertexSrc);
+            m_inputLayouts.Insert(key, layout);
+        }
+
+        //should never be here
+        if(!layout)
+        {
+            assert(0 && "Layout is null!");
+        }
+
+        m_context.deviceContext->IASetInputLayout(layout);
+        m_context.deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        
+        auto& vb =  mesh->GetVertexGraphicBuffer();
+        auto& ib =  mesh->GetIndexGraphicBuffer();
+
+        uint32_t stride = sizeof(Vertex);
+        uint32_t offset = 0;
+
+        auto vbPtr = vb.As<ID3D11Buffer*>();
+
+        m_context.deviceContext->IASetVertexBuffers(0, 1, &vbPtr, &stride, &offset);
+        m_context.deviceContext->IASetIndexBuffer(ib.As<ID3D11Buffer*>(), DXGI_FORMAT_R32_UINT, 0);
+        
+
+        m_context.deviceContext->VSSetShader(vertexShader, nullptr, 0);
+        m_context.deviceContext->PSSetShader(pixelShader , nullptr, 0);
+
+        m_context.deviceContext->DrawIndexed(mesh->GetIndexCount(), 0, 0);
     }
 }
 

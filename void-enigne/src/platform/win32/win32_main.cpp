@@ -10,7 +10,6 @@
 //belong to game layer
 //but platform dependent
 #include "void/application.h"
-#include "test/dynamic_array/dynamic_array_test.h"
 
 #ifdef _CONSOLE
 
@@ -669,8 +668,6 @@ public:
 int main()
 {
     using namespace VoidEngine;
-
-    TestArray();
     GlobalPersistantAllocator::SetBufferSize(KB(4));
 
     Application* app = new Application();

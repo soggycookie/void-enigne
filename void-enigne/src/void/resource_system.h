@@ -40,6 +40,11 @@ namespace VoidEngine
 
             auto resourceRef = ResourceCache::Acquire(guid);
 
+            if(resourceRef.type == ResourceType::UNKNOWN)
+            {
+                return nullptr;
+            }
+
             assert(
                 ResourceTypeTraits<T>::type == resourceRef.type &&
                 "Resource type and template type mismatch! [ResourceSystem.Acquire]"

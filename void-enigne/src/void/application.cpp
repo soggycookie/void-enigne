@@ -63,6 +63,11 @@ namespace VoidEngine
 
     void Application::Update()
     {
+        for(auto it = m_layerStack->End(); it != m_layerStack->Begin();)
+        {
+            (*(--it))->OnInit();
+        }
+
         while(m_isRunning)
         {          
             m_window->Update();

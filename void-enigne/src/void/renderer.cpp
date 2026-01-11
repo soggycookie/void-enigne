@@ -13,11 +13,6 @@ namespace VoidEngine
         s_rendererAPI->Clear();
     }
     
-    void Renderer::Update()
-    {
-        s_rendererAPI->Update();
-    }
-
     void Renderer::NewFrame()
     {
         s_rendererAPI->NewFrame();

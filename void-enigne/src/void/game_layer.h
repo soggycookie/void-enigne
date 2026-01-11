@@ -1,5 +1,6 @@
 #pragma once
 #include "layer.h"
+#include "resource.h"
 
 namespace VoidEngine
 {
@@ -7,10 +8,11 @@ namespace VoidEngine
     {
     public:
         GameLayer():
-            m_gameTime(0), m_initResource(false)
+            m_gameTime(0)
         {
         }
 
+        void OnInit() override;
         void OnDetach() override;
         void OnAttach() override;
         void OnUpdate(double dt) override;
@@ -18,6 +20,7 @@ namespace VoidEngine
 
     private:
         size_t m_gameTime;
-        bool m_initResource;
+        MeshResource* mesh;
+        MaterialResource* material;
     };
 }
