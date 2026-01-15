@@ -16,8 +16,6 @@ namespace VoidEngine
 
         virtual ~Renderer() = default;
 
-        static void Clear();
-
         static void* GetRendererAPIContext()
         {
             return s_rendererAPI->GetContext();
@@ -32,7 +30,7 @@ namespace VoidEngine
         static void DestroyBuffer(GraphicBuffer& buffer);
 
         static void* CompileShader(const wchar_t* file, const char* entry, const char* target);
-        static void* CreateShader(void* compiledSrc, ShaderType type);
+        static void* CreateShader(void** compiledSrc, ShaderType type);
         static void DestroyShader(GraphicShader& shader);
 
 
@@ -45,6 +43,7 @@ namespace VoidEngine
         
         static void ShutDown()
         {
+            s_rendererAPI->Clear();
         }
 
         static void StartUp(Window* window)

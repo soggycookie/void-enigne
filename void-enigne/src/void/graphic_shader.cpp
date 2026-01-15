@@ -5,7 +5,7 @@ namespace VoidEngine
 {
         void GraphicShader::SubmitToGpu()
         {
-            m_nativeHandle = Renderer::CreateShader(m_compiledSrc, m_type);
+            m_nativeHandle = Renderer::CreateShader(&m_compiledSrc, m_type);
 
         if(!m_nativeHandle)
         {

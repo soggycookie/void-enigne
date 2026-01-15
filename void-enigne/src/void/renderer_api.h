@@ -19,7 +19,7 @@ namespace VoidEngine
         virtual void DestroyBuffer(GraphicBuffer& buffer) = 0;
 
         virtual void* CompileShader(const wchar_t* file, const char* entry, const char* target) = 0;
-        virtual void* CreateShader(void* compiledSrc, ShaderType type) = 0;
+        virtual void* CreateShader(void** compiledSrc, ShaderType type) = 0;
         virtual void DestroyShader(GraphicShader& shader) = 0;
 
         virtual void Draw(MeshResource* mesh, MaterialResource* material) = 0;

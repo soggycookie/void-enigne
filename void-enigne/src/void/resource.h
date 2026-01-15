@@ -257,9 +257,9 @@ namespace VoidEngine
         ResourceGUID m_guid;
 
         Vertex* m_vertexData;
-        size_t m_vertexCount;
+        uint32_t m_vertexCount;
         uint32_t* m_indexData;
-        size_t m_indexCount;
+        uint32_t m_indexCount;
         
         const VertexDescriptor* m_descriptor;
         size_t m_descriptorCount;

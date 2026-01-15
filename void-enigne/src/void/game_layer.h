@@ -20,6 +20,7 @@ namespace VoidEngine
 
     private:
         size_t m_gameTime;
+        double elapsedTime;
         MeshResource* mesh;
         MaterialResource* material;
     };

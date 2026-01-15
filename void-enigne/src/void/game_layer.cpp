@@ -1,6 +1,8 @@
 #include "game_layer.h"
 #include "renderer.h"
 #include "resource_system.h"
+#include "profiler.h"
+
 namespace VoidEngine
 {
     void GameLayer::OnAttach()
@@ -9,7 +11,7 @@ namespace VoidEngine
     }
 
     void GameLayer::OnUpdate(double dt)
-    {
+    {     
         Renderer::NewFrame();
         Renderer::Draw(mesh, material);
         Renderer::EndFrame();

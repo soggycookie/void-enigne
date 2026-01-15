@@ -56,7 +56,6 @@ namespace VoidEngine
         ResourceSystem::ShutDown();
 
         MemorySystem::ShutDown();
-
         std::cout << "window time: " << m_window->GetWindowTime() << std::endl;
         m_isRunning = false;
     }

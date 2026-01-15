@@ -7,11 +7,6 @@ namespace VoidEngine
     RendererAPI* Renderer::s_rendererAPI = nullptr;
     GraphicAPI Renderer::s_graphicAPI = GraphicAPI::UNKNOWN;
     Window* Renderer::s_window = nullptr;
-
-    void Renderer::Clear()
-    {
-        s_rendererAPI->Clear();
-    }
     
     void Renderer::NewFrame()
     {
@@ -74,7 +69,7 @@ namespace VoidEngine
         return s_rendererAPI->CompileShader(file, entry, target);
     }
     
-    void* Renderer::CreateShader(void* compiledSrc, ShaderType type)
+    void* Renderer::CreateShader(void** compiledSrc, ShaderType type)
     {
         return s_rendererAPI->CreateShader(compiledSrc, type);
     }

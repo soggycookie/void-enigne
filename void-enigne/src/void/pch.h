@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -9,10 +10,12 @@
 #include <utility>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 #include <queue>
 #include <cassert>
-#include <type_traits>
 #include <cstdlib>
+#include <set>
+#include <unordered_set>
 
 #include "common_type.h"
 

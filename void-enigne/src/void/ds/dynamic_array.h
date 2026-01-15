@@ -365,6 +365,26 @@ namespace VoidEngine
             return m_capacity;
         }
 
+        void PopBack()
+        {
+            if(IsEmpty())
+            {
+                return;
+            }
+
+            if constexpr (!std::is_trivially_destructible_v<T>)
+            {
+                m_data[m_count - 1].~T();
+            }
+
+            --m_count;
+        }
+
+        bool IsEmpty() const
+        {
+            return m_count == 0;
+        }
+
         T& operator[](size_t index)
         {
             if(index >= m_count)
