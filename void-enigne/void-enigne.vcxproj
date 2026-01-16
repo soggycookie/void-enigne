@@ -153,7 +153,7 @@
   <ItemGroup>
     <ClCompile Include="src\platform\d3d11\d3d11_renderer_api.cpp" />
     <ClCompile Include="src\void\camera\editor_camera.cpp" />
-    <ClCompile Include="src\void\ecs\scene.cpp" />
+    <ClCompile Include="src\void\ecs\world.cpp" />
     <ClCompile Include="src\void\graphic_buffer.cpp" />
     <ClCompile Include="src\void\graphic_shader.cpp" />
     <ClCompile Include="src\void\layer_stack.cpp" />
@@ -178,7 +178,8 @@
     <ClInclude Include="src\test\flathashmap\fhs_test.h" />
     <ClInclude Include="src\void\camera\editor_camera.h" />
     <ClInclude Include="src\void\ecs\ecs_type.h" />
-    <ClInclude Include="src\void\ecs\scene.h" />
+    <ClInclude Include="src\void\ecs\query.h" />
+    <ClInclude Include="src\void\ecs\world.h" />
     <ClInclude Include="src\void\game_layer.h" />
     <ClInclude Include="src\void\graphic_buffer.h" />
     <ClInclude Include="src\void\graphic_shader.h" />

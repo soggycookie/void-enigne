@@ -40,21 +40,25 @@ namespace VoidEngine
                 other.m_isHash = false;
             }
 
-            ComponentSet& operator==(const ComponentSet& other)
+            ComponentSet& operator=(const ComponentSet& other)
             {
                 m_components = other.m_components;
                 m_hash = other.m_hash;
-                m_isHash = other.m_hash;                
+                m_isHash = other.m_hash;          
+
+                return *this;
             }
             
-            ComponentSet& operator==(ComponentSet&& other)
+            ComponentSet& operator=(ComponentSet&& other) noexcept
             {
                 m_components = std::move(other.m_components);
                 m_hash = other.m_hash;
                 m_isHash = other.m_hash;
 
                 other.m_hash = 0;
-                other.m_isHash = false;             
+                other.m_isHash = false;      
+
+                return *this;
             }
 
             bool operator==(const ComponentSet& other) const
@@ -107,12 +111,28 @@ namespace VoidEngine
             {
                 return m_components.end();
             }
+            
+            std::vector<ComponentId>::const_iterator Search(ComponentId id) const
+            {
+                return std::lower_bound(m_components.begin(), m_components.end(), id);
+            }
+            
+            std::vector<ComponentId>::const_iterator Begin() const
+            {
+                return m_components.begin();
+            }
+            
+            std::vector<ComponentId>::const_iterator End() const
+            {
+                return m_components.end();
+            }
 
-            ComponentSet& Add(ComponentId id)
+            bool Add(ComponentId id)
             {
                 auto it = Search(id);
                 if(it != m_components.end() && *it == id)
                 {
+                    return false;
                 }
                 else
                 {
@@ -120,10 +140,10 @@ namespace VoidEngine
                     m_isHash = false;
                 }
 
-                return *this;
+                return true;
             }
 
-            ComponentSet& Remove(ComponentId id)
+            bool Remove(ComponentId id)
             {
                 auto it = std::lower_bound(m_components.begin(), m_components.end(), id);
                 if(it != m_components.end() && *it == id)
@@ -131,8 +151,12 @@ namespace VoidEngine
                     m_components.erase(it);
                     m_isHash = false;
                 }
+                else
+                {
+                    return false;
+                }
 
-                return *this;
+                return true;
             }
 
             void Sort()
@@ -163,7 +187,17 @@ namespace VoidEngine
 
             ComponentId& operator[](uint32_t index)
             {
-                if(index < m_components.size())
+                if(index >= m_components.size())
+                {
+                    assert(0 && "index is out of bound!");
+                }
+
+                return m_components[index];
+            }
+            
+            const ComponentId& operator[](uint32_t index) const
+            {
+                if(index >= m_components.size())
                 {
                     assert(0 && "index is out of bound!");
                 }
@@ -204,7 +238,7 @@ namespace VoidEngine
         {
             std::function<void(void* src)> ctor = nullptr;
             std::function<void(void* src)> dtor = nullptr;
-            std::function<void(void* dest, void* src)> copy = nullptr;
+            std::function<void(void* dest, const void* src)> copy = nullptr;
             std::function<void(void* dest, void* src)> move = nullptr;        
         };
 
@@ -213,7 +247,7 @@ namespace VoidEngine
             uint8_t* colData;
             //move this another map ig
             ComponentTypeInfo typeInfo;
-            ComponentTypeHook hook;
+            ComponentTypeHook typeHook;
         };
 
         struct ArcheTypeData
@@ -271,7 +305,7 @@ namespace VoidEngine
 
             static ComponentTypeMetaData& Get()
             {
-                static ComponentTypeMetaData metaData();
+                static ComponentTypeMetaData metaData;
                 
                 return metaData;
             }
@@ -290,7 +324,7 @@ namespace VoidEngine
                 return *this;
             }
 
-            ComponentTypeMetaData& SetCopyHook(std::function<void(void*, void*)> copy)
+            ComponentTypeMetaData& SetCopyHook(std::function<void(void*, const void*)> copy)
             {
                 typeHook.copy = copy;
 
@@ -320,27 +354,27 @@ namespace VoidEngine
 
 
 
-#define ENTITY_ID_BITS      32
-#define ENTITY_GEN_BITS     16
-#define ENTITY_GEN_SHIFT    ENTITY_ID_BITS
+#define ECS_ENTITY_ID_BITS      32
+#define ECS_ENTITY_GEN_BITS     16
+#define ECS_ENTITY_GEN_SHIFT    ECS_ENTITY_ID_BITS
 
-#define ENTITY_ID_MASK      0xFFFFFFFFULL
-#define ENTITY_GEN_MASK     0xFFFFULL
+#define ECS_ENTITY_ID_MASK      0xFFFFFFFFULL
+#define ECS_ENTITY_GEN_MASK     0xFFFFULL
 
-#define ENTITY_ID(x) \
-    ((uint32_t)((x) & ENTITY_ID_MASK))
+#define ECS_ENTITY_ID(x) \
+    ((uint32_t)((x) & ECS_ENTITY_ID_MASK))
 
-#define ENTITY_GEN_COUNT(x) \
-    ((uint16_t)(((x) >> ENTITY_GEN_SHIFT) & ENTITY_GEN_MASK))
+#define ECS_ENTITY_GEN_COUNT(x) \
+    ((uint16_t)(((x) >> ECS_ENTITY_GEN_SHIFT) & ECS_ENTITY_GEN_MASK))
 
-#define MAKE_ENTITY_ID(id, gen) \
-    ((((uint64_t)(gen) & ENTITY_GEN_MASK) << ENTITY_GEN_SHIFT) | \
-     ((uint64_t)(id)  & ENTITY_ID_MASK))
+#define ECS_MAKE_ENTITY_ID(id, gen) \
+    ((((uint64_t)(gen) & ECS_ENTITY_GEN_MASK) << ECS_ENTITY_GEN_SHIFT) | \
+     ((uint64_t)(id)  & ECS_ENTITY_ID_MASK))
 
-#define INCRE_GEN_COUNT(x) \
-    MAKE_ENTITY_ID( \
-        ENTITY_ID(x), \
-        (uint16_t)(ENTITY_GEN_COUNT(x) + 1) \
+#define ECS_INCRE_GEN_COUNT(x) \
+    ECS_MAKE_ENTITY_ID( \
+        ECS_ENTITY_ID(x), \
+        (uint16_t)(ECS_ENTITY_GEN_COUNT(x) + 1) \
     )
 
         struct EntityRecord
@@ -355,6 +389,41 @@ namespace VoidEngine
             uint32_t column;
         };
 
+        struct ComponentInfo
+        {
+            ComponentTypeInfo typeInfo;
+            ComponentTypeHook typeHook;
+            std::vector<ArchetypeRecord> records;
+
+
+            ComponentInfo& SetCtorHook(std::function<void(void*)> ctor)
+            {
+                typeHook.ctor = ctor;
+
+                return *this;
+            }
+            
+            ComponentInfo& SetDtorHook(std::function<void(void*)> dtor)
+            {
+                typeHook.dtor = dtor;
+
+                return *this;
+            }
+
+            ComponentInfo& SetCopyHook(std::function<void(void*, const void*)> copy)
+            {
+                typeHook.copy = copy;
+
+                return *this;
+            }
+            
+            ComponentInfo& SetMoveHook(std::function<void(void*, void*)> move)
+            {
+                typeHook.move = move;
+
+                return *this;
+            }
+        };
     }
 }
 

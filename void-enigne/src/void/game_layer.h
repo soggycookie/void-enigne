@@ -1,9 +1,15 @@
 #pragma once
 #include "layer.h"
 #include "resource.h"
+#include "ecs/world.h"
 
 namespace VoidEngine
 {
+    struct Position
+    {
+        uint32_t x, y;
+    };
+
     class GameLayer : public Layer
     {
     public:
@@ -19,6 +25,7 @@ namespace VoidEngine
         void OnEvent(const Event& e) override;
 
     private:
+        ECS::World world;
         size_t m_gameTime;
         double elapsedTime;
         MeshResource* mesh;

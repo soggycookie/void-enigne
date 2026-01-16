@@ -1,4 +1,4 @@
-#include "scene.h"
+#include "world.h"
 #include "void/memory_system.h"
 
 namespace VoidEngine
@@ -22,18 +22,13 @@ namespace VoidEngine
         
         bool Entity::IsAlive()
         {
-            if(scene->m_entityRecords.find(id) != scene->m_entityRecords.end())
-            {
-                return true;
-            }
-
-            return false;
+            return scene->isEntityAlive(id);
         }
 
         Entity World::CreateEntity()
         {
             EntityId id = GenerateEntityId();
-
+            m_entityRecords.insert({id, EntityRecord{nullptr, 0}});
             return Entity(id, this);
         }
 
@@ -44,11 +39,11 @@ namespace VoidEngine
             {
                 id = m_freeEntityIndex[m_freeEntityIndex.size() - 1]; 
                 m_freeEntityIndex.pop_back();
-                INCRE_GEN_COUNT(id);
+                id = ECS_INCRE_GEN_COUNT(id);
             }
             else
             {
-                id = MAKE_ENTITY_ID(m_generatedEntityId++, 0);
+                id = ECS_MAKE_ENTITY_ID(m_generatedEntityId++, 0);
             }
 
             return id;
@@ -62,5 +57,16 @@ namespace VoidEngine
                 m_freeEntityIndex.push_back(id);
             }
         }
+
+        bool World::isEntityAlive(EntityId id)
+        {
+            if(m_entityRecords.find(id) != m_entityRecords.end())
+            {
+                return true;
+            }
+
+            return false;        
+        }
+
     }
 }
