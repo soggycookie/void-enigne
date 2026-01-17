@@ -35,3 +35,5 @@
 bin/
 *.vcxproj.filters
 *.vcxproj.user
+
+out/
