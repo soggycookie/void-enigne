@@ -45,7 +45,7 @@ namespace VoidEngine
         mesh->SetIndexData(quadIndices, 6);
         mesh->SubmitMeshToGpu();
 
-        auto shader = ResourceSystem::Load<ShaderResource>(L"src//asset//shader//square_demo.hlsl");
+        auto shader = ResourceSystem::Load<ShaderResource>(L"asset//shader//square_demo.hlsl");
         material = ResourceSystem::Create<MaterialResource>(ResourceSystem::GenerateGUID(), shader->GetGUID());
 
         //std::cout << "Entity id: " << e.GetId() << " , gen count: " << e.GetGenCount() << std::endl;

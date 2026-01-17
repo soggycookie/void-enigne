@@ -11,7 +11,7 @@
 //but platform dependent
 #include "void/application.h"
 
-#ifdef _CONSOLE
+#ifdef VOID_DEV_MODE
 
 class AVLTree
 {
@@ -687,10 +687,10 @@ int main()
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
 {
+    using namespace VoidEngine;
     GlobalPersistantAllocator::SetBufferSize(KB(4));
     
-    void* appAddr = GlobalPersistantAllocator::Get().Alloc(sizeof(Application));
-    Application* app = new (appAddr) Application();
+    Application* app = new Application();
 
     if(app->StartUp())
     {
