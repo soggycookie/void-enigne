@@ -5,7 +5,7 @@ namespace ECS
     void WorldAllocator::Init()
     {
         m_chunks.Init(SparsePageSize * sizeof(BlockAllocator));   
-        m_sparse.Init(nullptr, &m_chunks, sizeof(BlockAllocator), WorldAllocDefaultDense);
+        m_sparse.Init(nullptr, &m_chunks, WorldAllocDefaultDense);
     }
 
     void* WorldAllocator::Alloc(uint32_t size)
@@ -38,7 +38,8 @@ namespace ECS
     BlockAllocator* WorldAllocator::GetOrCreateBalloc(uint32_t size)
     {
         uint64_t id = size / 16;
-        
+        id = id / 2 + 1;
+
         uint32_t pageIndex = m_sparse.GetPageIndex(id);
         uint32_t pageOffset = m_sparse.GetPageOffset(id);
 
@@ -46,13 +47,13 @@ namespace ECS
 
         if(!m_sparse.isValidDense(id))
         {
-            m_sparse.PushBack(id);
-            block = new (m_sparse.GetSparsePageData(id)) BlockAllocator();
+            m_sparse.PushBack(id, {});
+            block = m_sparse.GetPageData(id);
             block->Init(size);
         }
         else
         {
-            block = PTR_CAST(m_sparse.GetSparsePageData(id), BlockAllocator);
+            block = m_sparse.GetPageData(id);
         }
 
         assert(block && "Block allocator is null!");

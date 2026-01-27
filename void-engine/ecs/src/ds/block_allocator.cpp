@@ -45,11 +45,12 @@ namespace ECS
             assert(chunkHead && "Chunk Head is null!");
         }
 
+        auto chunk = chunkHead;
         chunkHead = chunkHead->next;
 
-        std::memset(chunkHead, 0, chunkSize);
+        std::memset(chunk, 0, chunkSize);
 
-        return chunkHead;        
+        return chunk;        
     }
 
 

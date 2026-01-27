@@ -38,23 +38,22 @@ namespace ECS
             static_assert(std::is_destructible_v<T>);
         }
 
-        void Init(WorldAllocator* allocator, BlockAllocator* pageAllocator, 
-                  uint32_t elementSize, uint32_t defaultDense);
+        void Init(WorldAllocator* allocator, BlockAllocator* pageAllocator, uint32_t defaultDense);
         
 
         bool isValidDense(uint64_t id);
         bool isValidPage(uint64_t id);
 
-        T* GetSparsePageData(uint64_t id);
+        T* GetPageData(uint64_t id);
         uint32_t GetDenseIndex(uint64_t id);
 
         void SwapDense(uint32_t srcIndex, uint32_t destIndex);
 
-        uint32_t GetPageIndex(uint64_t id);
-        uint32_t GetPageOffset(uint64_t id);
+        uint32_t GetPageIndex(uint32_t id);
+        uint32_t GetPageOffset(uint32_t id);
         
         //this will grow dense and sparse if needed
-        void PushBack(uint64_t id);
+        void PushBack(uint64_t id, T&& element);
 
         void CallocPageDenseIndex(SparsePage<T>* page);
         void AllocPageData(SparsePage<T>* page);
@@ -66,6 +65,8 @@ namespace ECS
         SparsePage<T>* CreateOrGetSparsePage(uint64_t id);
 
         void Destroy();
+
+        void PrintDense();
 
     private:
         MemoryArray m_dense;
