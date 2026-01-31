@@ -1,16 +1,11 @@
 #include "entity.h"
 #include "world.h"
 
-
 namespace ECS
 {
-    void Entity::Destroy()
-    {
-        world->DestroyEntity(*this);
-    }
 
-    bool Entity::IsAlive()
+    void Entity::SetDefaultName()
     {
-        return world->isEntityAlive(*this);
+        std::snprintf(m_name, NameCapacity, "Entity %u", m_world->m_entityIndex.GetCount() + 1);
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 /*
-    Serve as a memory provider
+    @Serve as a type erasure memory array
+    @To construct/destruct, grow,... elements, you must manually operate on it's parent layer
 */
 
 namespace ECS
@@ -16,28 +17,29 @@ namespace ECS
         }
 
         void Init(WorldAllocator* allocator, uint32_t elementSize, uint32_t capacity);
+        
         bool IsReqGrow() const;
 
-        bool IncreCountCheck();
         void IncreCount();
+        void AddCount(uint32_t amount);
         void DecreCount();
-        
+
         uint32_t GetCount();
         uint32_t GetCapacity();
         uint32_t GetElementSize();
 
         void* GetArray();
 
-        //This function will not grow the capacity
-        //We can check ifReqGrow then do the Grow manually
-        void* PushBack();
-
         void* GetBackElement();
         void* GetFirstElement();
         void* GetElement(uint32_t index);
 
+        //This will not free/release old memory, 
+        //because underlying type is unknown, and it might need to be explicitly moved/copied/destructed
+        //To grow, call IsReqGrow, get old array, then call this func
+        //After that move/copy the data into new array, then free the old one
         void Grow(WorldAllocator* allocator, uint32_t newCapacity);
-        void* Alloc(WorldAllocator* allocator);
+        void* AllocN(WorldAllocator* allocator, uint32_t& expandedCapacity);
         void Free(WorldAllocator* allocator);
 
     private:

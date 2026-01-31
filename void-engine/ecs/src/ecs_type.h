@@ -305,18 +305,18 @@ namespace ECS
 #define ECS_ENTITY_GEN_BITS     16
 #define ECS_ENTITY_GEN_SHIFT    ECS_ENTITY_ID_BITS
 
-#define ECS_ENTITY_ID_MASK      0xFFFFFFFFULL
-#define ECS_ENTITY_GEN_MASK     0xFFFFULL
+#define ENTITY_ID_MASK      0xFFFFFFFFULL
+#define ENTITY_GEN_MASK     0xFFFFULL
 
 #define ECS_ENTITY_ID(x) \
-    ((uint32_t)((x) & ECS_ENTITY_ID_MASK))
+    ((uint32_t)((x) & ENTITY_ID_MASK))
 
 #define ECS_ENTITY_GEN_COUNT(x) \
-    ((uint16_t)(((x) >> ECS_ENTITY_GEN_SHIFT) & ECS_ENTITY_GEN_MASK))
+    ((uint16_t)(((x) >> ECS_ENTITY_GEN_SHIFT) & ENTITY_GEN_MASK))
 
 #define ECS_MAKE_ENTITY_ID(id, gen) \
-    ((((uint64_t)(gen) & ECS_ENTITY_GEN_MASK) << ECS_ENTITY_GEN_SHIFT) | \
-     ((uint64_t)(id)  & ECS_ENTITY_ID_MASK))
+    ((((uint64_t)(gen) & ENTITY_GEN_MASK) << ECS_ENTITY_GEN_SHIFT) | \
+     ((uint64_t)(id)  & ENTITY_ID_MASK))
 
 #define ECS_INCRE_GEN_COUNT(x) \
     ECS_MAKE_ENTITY_ID( \

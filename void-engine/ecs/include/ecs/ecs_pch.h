@@ -17,5 +17,6 @@
 #include <cstdlib>
 #include <set>
 #include <unordered_set>
+#include <typeinfo>
 
 #include "ecs_utils.h"

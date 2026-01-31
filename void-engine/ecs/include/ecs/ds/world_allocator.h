@@ -19,8 +19,8 @@ namespace ECS
         void Init();
 
         void* Alloc(uint32_t size);
-        void* AllocN(uint32_t elementSize, uint32_t capacity, uint32_t& newCapacity);
-        void* CallocN(uint32_t elementSize, uint32_t capacity, uint32_t& newCapacity);
+        void* AllocN(uint32_t elementSize, uint32_t capacity, uint32_t& expandedCapacity);
+        void* CallocN(uint32_t elementSize, uint32_t capacity, uint32_t& expandedCapacity);
         void* Calloc(uint32_t size);
         void Free(uint32_t size, void* addr);
 
@@ -32,3 +32,8 @@ namespace ECS
         SparseSet<BlockAllocator> m_sparse;
     };
 }
+
+/*
+    Template function definition
+*/
+#include "sparse_set.inl"

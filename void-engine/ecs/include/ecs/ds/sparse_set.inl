@@ -1,4 +1,3 @@
-#include "world_allocator.h"
 
 namespace ECS
 {
@@ -15,7 +14,8 @@ namespace ECS
         m_dense.Init(allocator, sizeof(uint64_t), defaultDense);
         m_sparse.Init(allocator, sizeof(SparsePage<T>), 0);
 
-        PTR_CAST(m_dense.PushBack(), uint64_t)[0] = 0;
+        PTR_CAST(m_dense.GetFirstElement(), uint64_t)[0] = 0;
+        m_dense.IncreCount();
     }
 
     template<typename T>
@@ -27,7 +27,7 @@ namespace ECS
     template<typename T>
     uint32_t SparseSet<T>::GetPageOffset(uint32_t id)
     {
-        return id & (SparsePageSize - 1);
+        return id & (SparsePageCount - 1);
     }
 
     template<typename T>
@@ -42,7 +42,14 @@ namespace ECS
             return nullptr;
         }
 
-        return CAST_OFFSET_MEM_ARR_ELEMENT(m_sparse, pageIndex, SparsePage<T>);
+        auto page = CAST_OFFSET_MEM_ARR_ELEMENT(m_sparse, pageIndex, SparsePage<T>);
+
+        if(!page->denseIndex && !page->data)
+        {
+            AllocPage(page);
+        }
+
+        return page;
     }
 
     template<typename T>
@@ -57,19 +64,20 @@ namespace ECS
             return nullptr;
         }
 
+        bool reqGrow = (pageIndex + 1) >  m_sparse.GetCapacity();
+
         void* oldArray = m_sparse.GetArray();
         size_t oldSize = m_sparse.GetElementSize() * m_sparse.GetCapacity();
-
         m_sparse.Grow(m_allocator, pageIndex + 1);
-
-        SparsePage<T>* newPage = PTR_CAST(m_sparse.PushBack(), SparsePage<T>);
+        
+        m_sparse.AddCount((pageIndex + 1) - m_sparse.GetCount());
+        SparsePage<T>* newPage = PTR_CAST(m_sparse.GetElement(pageIndex), SparsePage<T>);
         
         assert(newPage && "New page failed to create!");
 
-        CallocPageDenseIndex(newPage);
-        AllocPageData(newPage);
+        AllocPage(newPage);
 
-        if(oldArray)
+        if(oldArray && reqGrow)
         {
             std::memcpy(m_sparse.GetArray(), oldArray, oldSize);
 
@@ -100,17 +108,24 @@ namespace ECS
     }
 
     template<typename T>
+    void SparseSet<T>::AllocPage(SparsePage<T>* page)
+    {
+        CallocPageDenseIndex(page);
+        AllocPageData(page);
+    }
+
+    template<typename T>
     void SparseSet<T>::CallocPageDenseIndex(SparsePage<T>* page)
     {
         assert(page && "Page is null");
 
         if(m_allocator)
         {
-            page->denseIndex = PTR_CAST(m_allocator->Calloc(sizeof(uint32_t) * SparsePageSize), uint32_t);
+            page->denseIndex = PTR_CAST(m_allocator->Calloc(sizeof(uint32_t) * SparsePageCount), uint32_t);
         }
         else
         {
-            page->denseIndex = PTR_CAST(std::calloc(SparsePageSize, sizeof(uint32_t)), uint32_t);
+            page->denseIndex = PTR_CAST(std::calloc(SparsePageCount, sizeof(uint32_t)), uint32_t);
         }
         assert(page->denseIndex && "Page dense index is null!");
     }
@@ -128,11 +143,11 @@ namespace ECS
         {
             if(m_allocator)
             {
-                page->data = PTR_CAST(m_allocator->Alloc(sizeof(T) * SparsePageSize), T);
+                page->data = PTR_CAST(m_allocator->Alloc(sizeof(T) * SparsePageCount), T);
             }
             else
             {
-                page->data = PTR_CAST(std::malloc(sizeof(T) * SparsePageSize), T);
+                page->data = PTR_CAST(std::malloc(sizeof(T) * SparsePageCount), T);
             }
         }
     }
@@ -154,9 +169,7 @@ namespace ECS
             uint64_t freeId = 0;
             uint32_t nextAliveCount = m_count + 1;
             uint32_t denseCount = m_dense.GetCount();
-
-            page->denseIndex[pageOffset] = nextAliveCount;
-            
+           
             if(m_dense.IsReqGrow())
             {
                 void* oldDense = m_dense.GetArray();
@@ -202,9 +215,14 @@ namespace ECS
                 }
             }
 
+            page->denseIndex[pageOffset] = nextAliveCount;
             new (GetPageData(lowId)) T(std::move(element));
 
             ++m_count;
+        }
+        else
+        {
+            std::cout << "Id exist!" << std::endl;
         }
     }
 
@@ -419,6 +437,61 @@ namespace ECS
                                           m_dense.GetElementSize(), m_count + 1);
 
         return id;
+    }
+
+    template<typename T>
+    void SparseSet<T>::Destroy()
+    {
+        for(uint32_t i = 1; i <= m_count; i++)
+        {
+            uint64_t id = *CAST_OFFSET_ELEMENT(m_dense.GetArray(), uint64_t,
+                                               m_dense.GetElementSize(), i);
+
+            T* element = GetPageData(id);
+            
+            assert(element);
+            
+            if constexpr (!std::is_trivially_destructible_v<T>)
+            {
+                element->~T();
+            }
+        }
+
+        for(uint32_t i = 0; i < m_sparse.GetCount(); i++)
+        {
+            SparsePage<T>* page = CAST_OFFSET_MEM_ARR_ELEMENT(m_sparse, i, SparsePage<T>);
+            
+            assert(page);
+
+            if(m_allocator)
+            {
+                m_allocator->Free(SparsePageCount * sizeof(uint32_t), page->denseIndex);
+            }
+            else
+            {
+                std::free(page->denseIndex);
+            }
+
+            if(m_pageAllocator)
+            {
+                m_pageAllocator->Free(page->data);
+            }
+            else
+            {
+                if(m_allocator)
+                {
+                    m_allocator->Free(SparsePageCount * sizeof(T), page->data);
+                }
+                else
+                {
+                    std::free(page->data);
+                }            
+            }
+        }
+
+        m_dense.Free(m_allocator);
+        m_sparse.Free(m_allocator);
+        m_count = 0;
     }
 
 }

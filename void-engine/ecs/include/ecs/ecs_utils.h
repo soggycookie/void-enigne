@@ -27,12 +27,32 @@ namespace ECS
 
     constexpr size_t DefaultAlignment = alignof(std::max_align_t);
 
-    inline uint32_t Align(uint32_t src, uint32_t alignment)
+    inline uint32_t Align(uint32_t n, uint32_t alignment)
     {
         uint32_t mask = alignment - 1;
         assert((mask & alignment) == 0 && "Alignment must be power of 2!");
 
-        return (src + mask) & ~mask;
+        return (n + mask) & ~mask;
+    }
+    
+    inline uint32_t RoundMinPowerOf2(uint32_t n, uint32_t min)
+    {
+        assert((min & (min - 1)) == 0 && "Min alignment must be power of 2!");
+        
+        if(n <= min)
+        {
+            return min;
+        }
+        
+        --n;
+        
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+
+        return n + 1;
     }
 
 }

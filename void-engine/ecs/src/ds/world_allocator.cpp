@@ -4,13 +4,13 @@ namespace ECS
 {
     void WorldAllocator::Init()
     {
-        m_chunks.Init(SparsePageSize * sizeof(BlockAllocator));   
+        m_chunks.Init(SparsePageCount * sizeof(BlockAllocator));   
         m_sparse.Init(nullptr, &m_chunks, WorldAllocDefaultDense, false);
     }
 
     void* WorldAllocator::Alloc(uint32_t size)
     {
-        uint32_t alignedSize = Align(size, 16);
+        uint32_t alignedSize = RoundMinPowerOf2(size, 16);
 
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);
 
@@ -19,7 +19,7 @@ namespace ECS
 
     void* WorldAllocator::Calloc(uint32_t size)
     {
-        uint32_t alignedSize = Align(size, 16);
+        uint32_t alignedSize = RoundMinPowerOf2(size, 16);
 
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);    
 
@@ -28,7 +28,7 @@ namespace ECS
     
     void WorldAllocator::Free(uint32_t size, void* addr)
     {
-        uint32_t alignedSize = Align(size, 16);
+        uint32_t alignedSize = RoundMinPowerOf2(size, 16);
 
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);    
 
@@ -37,6 +37,8 @@ namespace ECS
     
     BlockAllocator* WorldAllocator::GetOrCreateBalloc(uint32_t size)
     {
+        //pack the size into closer
+        // 1 2 3 5
         uint64_t id = size / 16;
         id = id / 2 + 1;
 
@@ -61,28 +63,34 @@ namespace ECS
         return block;
     }
 
-    void* WorldAllocator::AllocN(uint32_t elementSize, uint32_t capacity, uint32_t& newCapacity)
+    void* WorldAllocator::AllocN(uint32_t elementSize, uint32_t capacity, uint32_t& expandedCapacity)
     {
-        assert(elementSize || capacity && "Alloc 0 byte!");
+        assert((elementSize || capacity) && "Alloc 0 byte!");
 
-        uint32_t alignedSize = Align(elementSize * capacity, 16);
+        uint32_t alignedSize = RoundMinPowerOf2(elementSize * capacity, 16);
 
-        newCapacity = alignedSize / elementSize;
+        expandedCapacity = alignedSize / elementSize;
 
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);
+
+        std::cout << "Alloc " << elementSize * capacity << " using block allocator with chunk size: " 
+            << block->chunkSize << ", chunk count: " << block->chunkCount << std::endl;
 
         return block->Alloc();
     }
 
-    void* WorldAllocator::CallocN(uint32_t elementSize, uint32_t capacity, uint32_t& newCapacity)
+    void* WorldAllocator::CallocN(uint32_t elementSize, uint32_t capacity, uint32_t& expandedCapacity)
     {
-        assert(elementSize || capacity && "Alloc 0 byte!");
+        assert((elementSize || capacity) && "Alloc 0 byte!");
 
-        uint32_t alignedSize = Align(elementSize * capacity, 16);
+        uint32_t alignedSize = RoundMinPowerOf2(elementSize * capacity, 16);
 
-        newCapacity = alignedSize / elementSize;
+        expandedCapacity = alignedSize / elementSize;
 
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);
+
+        std::cout << "Calloc " << elementSize * capacity << " using block allocator with chunk size: " 
+            << block->chunkSize << ", chunk count: " << block->chunkCount << std::endl;
 
         return block->Calloc();
     }

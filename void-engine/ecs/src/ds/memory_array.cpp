@@ -7,30 +7,25 @@ namespace ECS
     {
         assert(elementSize && "Elemenet size is 0!");
         m_elementSize = elementSize;
-        m_capacity = capacity;
         m_count = 0;
 
-        m_array = Alloc(allocator);
+        m_array = AllocN(allocator, capacity);
+        m_capacity = capacity;
     }
 
     bool MemoryArray::IsReqGrow() const
     {
         return m_count == m_capacity;
     }
-    
-    bool MemoryArray::IncreCountCheck()
-    {
-        if(m_count + 1 <= m_capacity)
-        {
-            return true;
-        }
 
-        return false;
-    }
-    
     void MemoryArray::IncreCount()
     {
         ++m_count;
+    }
+    
+    void MemoryArray::AddCount(uint32_t amount)
+    {
+        m_count += amount;
     }
     
     void MemoryArray::DecreCount()
@@ -84,12 +79,6 @@ namespace ECS
         return OFFSET_ELEMENT(m_array, m_elementSize, index);
     }
 
-    void* MemoryArray::PushBack()
-    {
-        ++m_count;
-        return OFFSET_ELEMENT(m_array, m_elementSize, m_count - 1);
-    }
-
     void MemoryArray::Grow(WorldAllocator* allocator, uint32_t newCapacity)
     {
         if(newCapacity <= m_capacity)
@@ -97,28 +86,31 @@ namespace ECS
             return;
         }
 
-        m_capacity = newCapacity;
-        m_array = Alloc(allocator);
+        uint32_t expandedCapacity = newCapacity;
+        m_array = AllocN(allocator, expandedCapacity);
+        m_capacity = expandedCapacity;
     }
 
 
-    void* MemoryArray::Alloc(WorldAllocator* allocator)
+    void* MemoryArray::AllocN(WorldAllocator* allocator, uint32_t& expandedCapacity)
     {
-        size_t size = m_elementSize * m_capacity;
+        uint32_t newCapacity = expandedCapacity;
+
+        size_t size = m_elementSize * newCapacity;
         if(size == 0)
         {
             return nullptr;
         }
+        
         void* data = nullptr;
+        
         if(!allocator)
         {
             data = std::malloc(size);
         }
         else
         {
-            uint32_t newcapacity = 0;
-            data = allocator->AllocN(m_elementSize, m_capacity, newcapacity);
-            m_capacity = newcapacity;
+            data = allocator->AllocN(m_elementSize, newCapacity, expandedCapacity);
         }
 
         assert(data && "Array failed to alloc!");
@@ -138,6 +130,10 @@ namespace ECS
             {
                 allocator->Free(m_elementSize * m_capacity, m_array);
             }
+            m_array = nullptr;
+            m_count = 0;
+            m_capacity = 0;
+            m_elementSize = 0;
         }
     }
 

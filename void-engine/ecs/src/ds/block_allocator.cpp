@@ -56,12 +56,28 @@ namespace ECS
 
     void BlockAllocator::Free(void* addr)
     {
-        //TODO: Check if addr is valid
-
         if(chunkCount <= MinChunkCount)
         {
             std::free(addr);
             return;
+        }
+        
+        BlockAllocatorBlock* block = blockHead;
+        
+        while(true)
+        {
+            assert(block && "Free memory is not belonged to this pool!");
+
+            uintptr_t bStart = RCAST(block, uintptr_t);
+            uintptr_t bEnd = bStart + sizeof(BlockAllocatorBlock) + chunkCount * chunkSize;
+            uintptr_t a = RCAST(addr, uintptr_t);
+            
+            if(a >= bStart && a < bEnd)
+            {
+                break;
+            }
+
+            block = block->next;
         }
 
         BlockAllocatorChunk* freeChunk = static_cast<BlockAllocatorChunk*>(addr);

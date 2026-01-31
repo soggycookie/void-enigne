@@ -7,7 +7,7 @@ namespace ECS
     class BlockAllocator;
 
     constexpr uint32_t SparsePageBit = 6;
-    constexpr uint32_t SparsePageSize = 1 << SparsePageBit;
+    constexpr uint32_t SparsePageCount = 1 << SparsePageBit;
 
     template<typename T>
     struct SparsePage
@@ -24,7 +24,6 @@ namespace ECS
             : m_dense(), m_sparse(), m_count(0), m_reservedFreeId(false),
             m_allocator(nullptr), m_pageAllocator(nullptr)
         {
-            static_assert(std::is_constructible_v<T>);
             static_assert(
                 std::is_copy_constructible_v<T> ||
                 std::is_move_constructible_v<T>
@@ -41,6 +40,10 @@ namespace ECS
         void Init(WorldAllocator* allocator, BlockAllocator* pageAllocator, 
                   uint32_t defaultDense, bool reservedFreeId);
         
+        uint32_t GetCount() const
+        {
+            return m_count;
+        }
 
         bool isValidDense(uint64_t id);
         bool isValidPage(uint64_t id);
@@ -56,6 +59,7 @@ namespace ECS
         //this will grow dense and sparse if needed
         void PushBack(uint64_t id, T&& element, bool newId = true);
 
+        void AllocPage(SparsePage<T>* page);
         void CallocPageDenseIndex(SparsePage<T>* page);
         void AllocPageData(SparsePage<T>* page);
 
@@ -83,9 +87,4 @@ namespace ECS
     };
 
 }
-
-/*
-    Template function definition
-*/
-#include "sparse_set.inl"
 

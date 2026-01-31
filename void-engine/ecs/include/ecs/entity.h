@@ -1,68 +1,50 @@
 #pragma once
-#include "ecs_type.h"
-
+#include "entity_builder.h"
 
 namespace ECS
 {
-    class World;
-
-    class Entity
+    class Entity : public EntityBuilder
     {
-    private:
-        friend class World;
-
-        Entity(EntityId id, World* scene)
-            :id(id), world(scene), name()
-        {
-            std::ostringstream oss;
-            oss << "Entity " << ECS_ENTITY_ID(id);
-            name = std::move(oss.str());
-        }
-
     public:
-        void Destroy();
-        bool IsAlive();
 
-        uint32_t GetId() const
+        static constexpr size_t NameCapacity = 16;
+
+        explicit Entity(EntityId id, World* world, const char* name)
+            : EntityBuilder(id, world)
         {
-            return ECS_ENTITY_ID(id);
+            if(name)
+            {
+                int32_t r = std::snprintf(m_name, NameCapacity, name);
+            
+                if(r < 0)
+                {
+                    SetDefaultName();
+                }
+            }
+            else
+            {
+                SetDefaultName();
+                //m_name[0] = '\0';
+            }
         }
+        virtual ~Entity() = default;
 
-        uint32_t GetGenCount() const
+        Entity(Entity&& other) = default;
+        Entity& operator=(Entity&& other) = default;
+
+        Entity(const Entity& other) = default;
+        Entity& operator=(const Entity& other) = default;
+
+        const char* GetName() const
         {
-            return ECS_ENTITY_GEN_COUNT(id);
+            return m_name;
         }
-
-        EntityId GetFullId() const
-        {
-            return id;
-        }
-
-        template<typename T>
-        void Add(const T& data);
-
-        template<typename T>
-        void Remove();
-
-        template<typename T>
-        T* Get();
 
     private:
-        EntityId id;
-        World* world;
-        std::string name;
-    };
-}
+        void SetDefaultName();
 
 
-namespace std
-{
-    template<>
-    struct hash<ECS::Entity>
-    {
-        size_t operator()(const ECS::Entity& e) const noexcept
-        {
-            return std::hash<ECS::EntityId>{}(e.GetFullId());
-        }
+    private:
+        char m_name[NameCapacity];
     };
 }
