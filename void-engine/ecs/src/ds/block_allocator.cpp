@@ -5,50 +5,51 @@ namespace ECS
     void BlockAllocator::Init(uint32_t size)
     {
         assert(size && "Data Size is 0!");
-        dataSize = size;
-        chunkSize = Align(size, MinChunkAlign);
-        chunkCount = std::max<uint32_t>(PageSize / chunkSize, 1);
-        blockSize = chunkCount * chunkSize;
-        blockHead = nullptr;
-        chunkHead = nullptr;
+        m_chunkSize = Align(size, MinChunkAlign);
+        m_chunkCount = std::max<uint32_t>(PageSize / m_chunkSize, 1);
+        m_blockSize = m_chunkCount * m_chunkSize;
+        m_blockHead = nullptr;
+        m_chunkHead = nullptr;
     }
 
     void* BlockAllocator::Alloc()
     {
-        if(chunkCount <= MinChunkCount)
+        if(m_chunkCount <= MinChunkCount)
         {
-            return std::malloc(dataSize);
+            return std::malloc(m_chunkSize);
         }
 
-        if(!chunkHead)
+        if(!m_chunkHead)
         {
-            chunkHead = CreateBlock();
-            assert(chunkHead && "Chunk Head is null!");
+            m_chunkHead = CreateBlock();
+            assert(m_chunkHead && "Chunk Head is null!");
         }
 
-        auto chunk = chunkHead;
-        chunkHead = chunkHead->next;
-
+        auto chunk = m_chunkHead;
+        m_chunkHead = m_chunkHead->next;
+        ++m_allocCount;
+        
         return chunk;
     }
 
     void* BlockAllocator::Calloc()
     {
-        if(chunkCount <= MinChunkCount)
+        if(m_chunkCount <= MinChunkCount)
         {
-            return std::calloc(1, dataSize);
+            return std::calloc(1, m_chunkSize);
         }
 
-        if(!chunkHead)
+        if(!m_chunkHead)
         {
-            chunkHead = CreateBlock();
-            assert(chunkHead && "Chunk Head is null!");
+            m_chunkHead = CreateBlock();
+            assert(m_chunkHead && "Chunk Head is null!");
         }
 
-        auto chunk = chunkHead;
-        chunkHead = chunkHead->next;
+        auto chunk = m_chunkHead;
+        m_chunkHead = m_chunkHead->next;
 
-        std::memset(chunk, 0, chunkSize);
+        std::memset(chunk, 0, m_chunkSize);
+        ++m_allocCount;
 
         return chunk;        
     }
@@ -56,20 +57,20 @@ namespace ECS
 
     void BlockAllocator::Free(void* addr)
     {
-        if(chunkCount <= MinChunkCount)
+        if(m_chunkCount <= MinChunkCount)
         {
             std::free(addr);
             return;
         }
         
-        BlockAllocatorBlock* block = blockHead;
+        BlockAllocatorBlock* block = m_blockHead;
         
         while(true)
         {
             assert(block && "Free memory is not belonged to this pool!");
 
             uintptr_t bStart = RCAST(block, uintptr_t);
-            uintptr_t bEnd = bStart + sizeof(BlockAllocatorBlock) + chunkCount * chunkSize;
+            uintptr_t bEnd = bStart + sizeof(BlockAllocatorBlock) + m_chunkCount * m_chunkSize;
             uintptr_t a = RCAST(addr, uintptr_t);
             
             if(a >= bStart && a < bEnd)
@@ -82,15 +83,17 @@ namespace ECS
 
         BlockAllocatorChunk* freeChunk = static_cast<BlockAllocatorChunk*>(addr);
 
-        freeChunk->next = chunkHead;
-        chunkHead = freeChunk;
+        freeChunk->next = m_chunkHead;
+        m_chunkHead = freeChunk;
+
+        --m_allocCount;
     }
 
     BlockAllocatorChunk* BlockAllocator::CreateBlock()
     {
         BlockAllocatorBlock* block = 
             static_cast<BlockAllocatorBlock*>(
-                std::malloc(sizeof(BlockAllocatorBlock) + chunkCount * chunkSize)
+                std::malloc(sizeof(BlockAllocatorBlock) + m_chunkCount * m_chunkSize)
             );
 
         assert(block && "Malloc block is null!");
@@ -100,16 +103,16 @@ namespace ECS
             );
 
         block->firstChunk = firstChunk;
-        block->next = blockHead;
-        blockHead = block;
+        block->next = m_blockHead;
+        m_blockHead = block;
 
-        chunkHead = firstChunk;
+        m_chunkHead = firstChunk;
 
         BlockAllocatorChunk* chunk = firstChunk;
-        for(uint32_t i = 1; i < chunkCount; ++i)
+        for(uint32_t i = 1; i < m_chunkCount; ++i)
         {
             chunk->next = reinterpret_cast<BlockAllocatorChunk*>(
-                    reinterpret_cast<uintptr_t>(block->firstChunk) + chunkSize * i
+                    reinterpret_cast<uintptr_t>(block->firstChunk) + m_chunkSize * i
                 );
             chunk = chunk->next;
         }
@@ -118,25 +121,5 @@ namespace ECS
 
         return firstChunk;
     }
-
-    void BlockAllocator::Clear()
-    {
-        if(chunkCount <= MinChunkCount)
-        {
-            return;
-        }
-
-        BlockAllocatorBlock* block = blockHead;
-        while(block)
-        {
-            BlockAllocatorBlock* nextBlock = block->next;
-            
-            std::free(block);
-            
-            block = nextBlock;
-        }
-    }
-
-
 
 }

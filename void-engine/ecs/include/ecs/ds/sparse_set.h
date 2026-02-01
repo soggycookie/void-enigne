@@ -57,7 +57,8 @@ namespace ECS
         uint32_t GetPageOffset(uint32_t id);
         
         //this will grow dense and sparse if needed
-        void PushBack(uint64_t id, T&& element, bool newId = true);
+        template<typename U>
+        void PushBack(uint64_t id, U&& element, bool newId = true);
 
         void AllocPage(SparsePage<T>* page);
         void CallocPageDenseIndex(SparsePage<T>* page);

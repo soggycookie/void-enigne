@@ -1,9 +1,6 @@
 #pragma once
 #include "../ecs_pch.h"
 
-#pragma once
-#include "ecs_pch.h"
-
 namespace ECS
 {
 
@@ -25,9 +22,11 @@ constexpr uint32_t PageSize = KB(4);
     class BlockAllocator
     {
     public:
+        friend class WorldAllocator;
+
         BlockAllocator()
-            : dataSize(0), chunkCount(0), chunkSize(0), blockSize(0),
-            chunkHead(nullptr), blockHead(nullptr)
+            : m_allocCount(0), m_chunkCount(0), m_chunkSize(0), m_blockSize(0),
+            m_chunkHead(nullptr), m_blockHead(nullptr)
         {
         }
 
@@ -38,14 +37,13 @@ constexpr uint32_t PageSize = KB(4);
 
     private:
         BlockAllocatorChunk* CreateBlock();
-        void Clear();
 
-    public:
-        uint32_t dataSize;
-        uint32_t chunkCount;
-        uint32_t chunkSize;
-        uint32_t blockSize;
-        BlockAllocatorChunk* chunkHead;
-        BlockAllocatorBlock* blockHead;
+    private:
+        uint32_t m_allocCount;
+        uint32_t m_chunkCount;
+        uint32_t m_chunkSize;
+        uint32_t m_blockSize;
+        BlockAllocatorChunk* m_chunkHead;
+        BlockAllocatorBlock* m_blockHead;
     };
 }

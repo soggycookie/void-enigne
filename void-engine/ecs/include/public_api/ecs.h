@@ -1,5 +1,6 @@
 #pragma once
 #include "../ecs/world.h"
+#include "../ecs/ecs_type.h"
 
 namespace ECS
 {

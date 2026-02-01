@@ -1,12 +1,12 @@
 #pragma once
-#include "ds/world_allocator.h"
-
+#include "world_allocator.h"
 /*
     Robin hood open addressing hash map
 */
 
 namespace ECS
 {
+
     //chatgpt
     inline uint64_t HashU64(uint64_t x)
     {
@@ -180,7 +180,7 @@ namespace ECS
 
             if(m_allocator)
             {
-                m_allocator->Free(m_alignedBucketSize * m_bucketCount, m_array);
+                m_allocator->Free(sizeof(Bucket) * m_bucketCount, m_array);
             }
             else
             {
@@ -201,7 +201,6 @@ namespace ECS
                 ++m_count;
             }
         }
-
 
         void Remove(const Key& key)
         {
@@ -356,7 +355,7 @@ namespace ECS
 
         Iterator Begin()
         {
-            return Iterator(RCAST(m_array, Bucket));
+            return Iterator(PTR_RCAST(m_array, Bucket));
         }
 
         Iterator End()

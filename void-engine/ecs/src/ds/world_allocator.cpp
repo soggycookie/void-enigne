@@ -49,7 +49,7 @@ namespace ECS
 
         if(!m_sparse.isValidDense(id))
         {
-            m_sparse.PushBack(id, {});
+            m_sparse.PushBack(id, BlockAllocator());
             block = m_sparse.GetPageData(id);
             block->Init(size);
         }
@@ -74,7 +74,7 @@ namespace ECS
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);
 
         std::cout << "Alloc " << elementSize * capacity << " using block allocator with chunk size: " 
-            << block->chunkSize << ", chunk count: " << block->chunkCount << std::endl;
+            << block->m_chunkSize << ", chunk count: " << block->m_chunkCount << std::endl;
 
         return block->Alloc();
     }
@@ -90,7 +90,7 @@ namespace ECS
         BlockAllocator* block = GetOrCreateBalloc(alignedSize);
 
         std::cout << "Calloc " << elementSize * capacity << " using block allocator with chunk size: " 
-            << block->chunkSize << ", chunk count: " << block->chunkCount << std::endl;
+            << block->m_chunkSize << ", chunk count: " << block->m_chunkCount << std::endl;
 
         return block->Calloc();
     }

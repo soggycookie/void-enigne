@@ -9,23 +9,9 @@ namespace ECS
 
         static constexpr size_t NameCapacity = 16;
 
-        explicit Entity(EntityId id, World* world, const char* name)
+        explicit Entity(EntityId id, World* world)
             : EntityBuilder(id, world)
         {
-            if(name)
-            {
-                int32_t r = std::snprintf(m_name, NameCapacity, name);
-            
-                if(r < 0)
-                {
-                    SetDefaultName();
-                }
-            }
-            else
-            {
-                SetDefaultName();
-                //m_name[0] = '\0';
-            }
         }
         virtual ~Entity() = default;
 
@@ -35,16 +21,6 @@ namespace ECS
         Entity(const Entity& other) = default;
         Entity& operator=(const Entity& other) = default;
 
-        const char* GetName() const
-        {
-            return m_name;
-        }
 
-    private:
-        void SetDefaultName();
-
-
-    private:
-        char m_name[NameCapacity];
     };
 }

@@ -5,7 +5,10 @@ namespace ECS
 
     World* CreateWorld()
     {
-        return new World();
+        auto w = new World();
+        w->Init();
+
+        return w;
     }
 
     Entity World::CreateEntity()
@@ -20,12 +23,15 @@ namespace ECS
 
             id = m_nextFreeId;
         }
-        Entity e(id, this, nullptr);
+        Entity e(id, this);
         e.IncreGenCount();
 
-        m_entityIndex.PushBack(id, std::move(e), newId);
+        EntityRecord r = {};
+        std::snprintf(r.name, 16, "Entity");
 
-        return *m_entityIndex.GetPageData(id);
+        m_entityIndex.PushBack(e.GetFullId(), r, newId);
+
+        return e;
     }
 
     Entity World::CreateEntity(const char* name)
@@ -40,24 +46,30 @@ namespace ECS
 
             id = m_nextFreeId;
         }
-        Entity e(id, this, name);
+        Entity e(id, this);
         e.IncreGenCount();
 
-        m_entityIndex.PushBack(id, std::move(e), newId);
+        EntityRecord r = {};
+        std::snprintf(r.name, 16, name);
 
-        return *m_entityIndex.GetPageData(id);
+        m_entityIndex.PushBack(e.GetFullId(), r, newId);
+
+        return e;
     }
 
     Entity World::CreateEntity(LoEntityId id)
     {
         if(!m_entityIndex.isValidDense(id))
         {
-            Entity e(id, this, nullptr);
+            Entity e(id, this);
             e.IncreGenCount();
 
-            m_entityIndex.PushBack(id, std::move(e), true);
+            EntityRecord r = {};
+            std::snprintf(r.name, 16, "Entity");
+
+            m_entityIndex.PushBack(e.GetFullId(), r, true);
             
-            return *m_entityIndex.GetPageData(id);
+            return e;
         }
         else
         {
@@ -71,12 +83,15 @@ namespace ECS
 
                 freeId = m_nextFreeId;
             }
-            Entity e(freeId, this, nullptr);
+            Entity e(freeId, this);
             e.IncreGenCount();
-
-            m_entityIndex.PushBack(freeId, std::move(e), newId);
             
-            return *m_entityIndex.GetPageData(freeId);
+            EntityRecord r = {};
+            std::snprintf(r.name, 16, "Entity");
+
+            m_entityIndex.PushBack(e.GetFullId(), r, newId);
+            
+            return e;
         }
     }
 
@@ -84,12 +99,15 @@ namespace ECS
     {
         if(!m_entityIndex.isValidDense(id))
         {
-            Entity e(id, this, name);
+            Entity e(id, this);
             e.IncreGenCount();
 
-            m_entityIndex.PushBack(id, std::move(e), true);
+            EntityRecord r = {};
+            std::snprintf(r.name, 16, name);
+
+            m_entityIndex.PushBack(e.GetFullId(), r, true);
             
-            return *m_entityIndex.GetPageData(id);
+            return e;
         }
         else
         {
@@ -103,18 +121,21 @@ namespace ECS
 
                 freeId = m_nextFreeId;
             }
-            Entity e(freeId, this, name);
+            Entity e(freeId, this);
             e.IncreGenCount();
-
-            m_entityIndex.PushBack(freeId, std::move(e), newId);
             
-            return *m_entityIndex.GetPageData(freeId);
+            EntityRecord r = {};
+            std::snprintf(r.name, 16, name);
+
+            m_entityIndex.PushBack(e.GetFullId(), r, newId);
+            
+            return e;
         }
     }
 
-    const char* World::GetEntityName(EntityId id)
+    EntityRecord* World::GetEntityRecord(EntityId id)
     {
-        Entity* e = m_entityIndex.GetPageData(id);
+        EntityRecord* e = m_entityIndex.GetPageData(id);
         
         if(!e)
         {
@@ -122,13 +143,32 @@ namespace ECS
         }
         else
         {
-            return e->GetName();
+            return e;
         }
     }
 
-    Entity* World::GetEntity(EntityId id)
+    void World::Init()
     {
-        return m_entityIndex.GetPageData(id);
+        m_wAllocator.Init();
+        InitAllocators();
+        m_entityIndex.Init(&m_wAllocator, nullptr, 8, true);
+        m_archetypes.Init(&m_wAllocator, &m_allocators.archetypes, 8, false);
+        m_componentRecords.Init(&m_wAllocator, 8);
+        m_typeInfos.Init(&m_wAllocator, 8);
+        m_mappedArchetype.Init(&m_wAllocator, 8);
     }
+
+    void World::InitAllocators()
+    {
+        m_allocators.archetypes.Init(SparsePageCount * sizeof(Archetype));
+    }
+
+    //Entity* World::GetEntity(EntityId id)
+    //{
+    //    return m_entityIndex.GetPageData(id);
+    //}
+
+
+
 
 }

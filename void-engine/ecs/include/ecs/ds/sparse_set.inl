@@ -153,7 +153,8 @@ namespace ECS
     }
 
     template<typename T>
-    void SparseSet<T>::PushBack(uint64_t id, T&& element, bool newId)
+    template<typename U>
+    void SparseSet<T>::PushBack(uint64_t id, U&& element, bool newId)
     {
         uint32_t lowId = CAST(id, uint32_t);
 
