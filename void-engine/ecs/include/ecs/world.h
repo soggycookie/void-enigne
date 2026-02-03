@@ -340,10 +340,12 @@ namespace ECS
 
             //grow entities
             EntityId* newEntities =
-                PTR_CAST(m_wAllocator.Alloc(sizeof(EntityId) * DefaultArchetypeCapacity), EntityId);
+                PTR_CAST(m_wAllocator.Alloc(sizeof(EntityId) * newCapacity), EntityId);
 
-            std::memcpy(newEntities, archetype.entities, sizeof(EntityId) * archetype.count);
+            std::memcpy(newEntities, archetype.entities, sizeof(EntityId) * archetype.capacity);
             m_wAllocator.Free(sizeof(EntityId) * archetype.capacity, archetype.entities);
+            
+            archetype.entities = newEntities;
 
             //grow column data
             for(uint32_t i = 0; i < archetype.components.count; i++)
@@ -368,7 +370,10 @@ namespace ECS
                             ti->hook.copyCtor(dest, src);
                         }
 
-                        ti->hook.dtor(src);
+                        if(ti->hook.dtor)
+                        {
+                            ti->hook.dtor(src);
+                        }
                     }
                 }
                 else

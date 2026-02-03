@@ -68,7 +68,7 @@ namespace ECS
 
         void* oldArray = m_sparse.GetArray();
         size_t oldSize = m_sparse.GetElementSize() * m_sparse.GetCapacity();
-        m_sparse.Grow(m_allocator, pageIndex + 1);
+        m_sparse.CGrow(m_allocator, pageIndex + 1);
         
         m_sparse.AddCount((pageIndex + 1) - m_sparse.GetCount());
         SparsePage<T>* newPage = PTR_CAST(m_sparse.GetElement(pageIndex), SparsePage<T>);

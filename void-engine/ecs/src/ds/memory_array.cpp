@@ -91,6 +91,18 @@ namespace ECS
         m_capacity = expandedCapacity;
     }
 
+    void MemoryArray::CGrow(WorldAllocator* allocator, uint32_t newCapacity)
+    {
+        if(newCapacity <= m_capacity)
+        {
+            return;
+        }
+
+        uint32_t expandedCapacity = newCapacity;
+        m_array = CallocN(allocator, expandedCapacity);
+        m_capacity = expandedCapacity;
+    }
+
 
     void* MemoryArray::AllocN(WorldAllocator* allocator, uint32_t& expandedCapacity)
     {
@@ -111,6 +123,32 @@ namespace ECS
         else
         {
             data = allocator->AllocN(m_elementSize, newCapacity, expandedCapacity);
+        }
+
+        assert(data && "Array failed to alloc!");
+
+        return data;
+    }
+
+    void* MemoryArray::CallocN(WorldAllocator* allocator, uint32_t& expandedCapacity)
+    {
+        uint32_t newCapacity = expandedCapacity;
+
+        size_t size = m_elementSize * newCapacity;
+        if(size == 0)
+        {
+            return nullptr;
+        }
+        
+        void* data = nullptr;
+        
+        if(!allocator)
+        {
+            data = std::calloc(1, size);
+        }
+        else
+        {
+            data = allocator->CallocN(m_elementSize, newCapacity, expandedCapacity);
         }
 
         assert(data && "Array failed to alloc!");

@@ -39,7 +39,9 @@ namespace ECS
         //To grow, call IsReqGrow, get old array, then call this func
         //After that move/copy the data into new array, then free the old one
         void Grow(WorldAllocator* allocator, uint32_t newCapacity);
+        void CGrow(WorldAllocator* allocator, uint32_t newCapacity);
         void* AllocN(WorldAllocator* allocator, uint32_t& expandedCapacity);
+        void* CallocN(WorldAllocator* allocator, uint32_t& expandedCapacity);
         void Free(WorldAllocator* allocator);
 
     private:
