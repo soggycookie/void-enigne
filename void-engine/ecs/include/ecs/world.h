@@ -97,21 +97,21 @@ namespace ECS
             tiBuilder.AddEvent(
                 []()
                 {
-                    std::cout << "Add component" << std::endl;
+                    std::cout << "Add component " << ComponentName<Component>::name << std::endl;
                 }
             );
             
             tiBuilder.RemoveEvent(
                 []()
                 {
-                    std::cout << "Remove component" << std::endl;
+                    std::cout << "Remove component" << ComponentName<Component>::name << std::endl;
                 }
             );
             
             tiBuilder.SetEvent(
                 [](void* dest)
                 {
-                    std::cout << "Set component" << std::endl;
+                    std::cout << "Set component" << ComponentName<Component>::name << std::endl;
                 }
             );
 
@@ -125,6 +125,16 @@ namespace ECS
             EntityRecord* r = m_entityIndex.GetPageData(id);
 
             assert(r);
+            
+            if(r->archetype)
+            {
+                int32_t s = r->archetype->components.Search(GetComponentId<Component>());
+                
+                if(s != -1)
+                {
+                    return;
+                }
+            }
 
             uint32_t count = 1;
             uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
@@ -199,8 +209,9 @@ namespace ECS
             }
 
             destArchetype->entities[destArchetype->count] = id;
-            ++destArchetype->count;
             r->archetype = destArchetype;
+            r->row = destArchetype->count;
+            ++destArchetype->count;
 
             TypeInfo& ti = *m_typeInfos[GetComponentId<Component>()];
             ti.hook.onAdd();
@@ -259,7 +270,7 @@ namespace ECS
         void SwapBack(EntityRecord& r)
         {
             assert(r.archetype);
-            assert(r.dense == 0);
+            assert(r.dense);
 
             Archetype& archetype = *r.archetype;
 
@@ -383,7 +394,7 @@ namespace ECS
                     //CREATE EDEGE
                     uint32_t count = srcCount + componentDiff.count;
                     uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
-
+                    
                     ComponentSet cs;
                     cs.ids = arr;
                     cs.count = count;

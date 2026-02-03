@@ -33,6 +33,7 @@ namespace ECS
     class Id
     {
     protected:
+
         Id(EntityId id)
             : m_id(id)
         {

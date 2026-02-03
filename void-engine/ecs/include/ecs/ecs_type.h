@@ -19,6 +19,8 @@ namespace ECS
         return id;
     }
 
+     
+
     struct ComponentSet
     {
         ComponentId* ids;
@@ -307,3 +309,16 @@ namespace ECS
     };
 
 }
+
+template<typename T>
+struct ComponentName
+{
+    static constexpr const char* name;
+};
+
+#define ECS_COMPONENT(T) \
+    template<> \
+    struct ComponentName<T> \
+    { \
+        static constexpr const char* name = #T; \
+    }; 

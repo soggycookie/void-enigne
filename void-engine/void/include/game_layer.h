@@ -10,15 +10,19 @@ namespace VoidEngine
         uint32_t x, y;
     };
     
+    ECS_COMPONENT(Position)
+
     struct Velocity
     {
         float x, y;
     };
+    ECS_COMPONENT(Velocity)
 
     struct Rotation
     {
         float x, y;
     };
+    ECS_COMPONENT(Rotation)
 
     struct Test
     {

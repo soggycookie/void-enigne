@@ -13,6 +13,7 @@ namespace ECS
             : EntityBuilder(id, world)
         {
         }
+
         virtual ~Entity() = default;
 
         Entity(Entity&& other) = default;

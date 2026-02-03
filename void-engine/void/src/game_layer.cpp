@@ -48,10 +48,36 @@ namespace VoidEngine
         material = ResourceSystem::Create<MaterialResource>(ResourceSystem::GenerateGUID(), shader->GetGUID());
 
         //std::cout << "Entity id: " << e.GetId() << " , gen count: " << e.GetGenCount() << std::endl;
-        std::cout << sizeof(Test) << std::endl;
         
         world = ECS::CreateWorld();
-        void* data = ECS::Alloc(world, 8);
+        world->RegisterComponent<Position>();
+        world->RegisterComponent<Velocity>();
+
+        ECS::Entity e = world->CreateEntity(1, "The first");
+        ECS::Entity e1 = world->CreateEntity(1, "The Second");
+        ECS::Entity e2 = world->CreateEntity("The third");
+
+        e.AddComponent<Position>();
+        e.Set<Position>({1,2});
+ 
+        e1.AddComponent<Position>();
+        e1.Set<Position>({3,4});
+        
+        e2.AddComponent<Position>();
+        e2.Set<Position>({10,12});
+
+        std::cout << e.Get<Position>().x <<", " << e.Get<Position>().y << std::endl;
+        std::cout << e1.Get<Position>().x <<", " << e1.Get<Position>().y << std::endl;
+        std::cout << e2.Get<Position>().x <<", " << e2.Get<Position>().y << std::endl;
+        
+        e.AddComponent<Velocity>();
+        e.Set<Velocity>({0.0f, 0.5f});
+        std::cout << e.Get<Position>().x <<", " << e.Get<Position>().y << std::endl;
+        std::cout << e1.Get<Position>().x <<", " << e1.Get<Position>().y << std::endl;
+        std::cout << e2.Get<Position>().x <<", " << e2.Get<Position>().y << std::endl;
+        
+        std::cout << e.Get<Velocity>().x <<", " << e.Get<Velocity>().y << std::endl;
+
 
     }   
 
