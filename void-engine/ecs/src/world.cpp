@@ -202,6 +202,8 @@ namespace ECS
         m_componentRecords.Init(&m_wAllocator, 8);
         m_typeInfos.Init(&m_wAllocator, 8);
         m_mappedArchetype.Init(&m_wAllocator, 8);
+
+        m_componentStore.Init(m_wAllocator);
     }
 
     void World::InitAllocators()

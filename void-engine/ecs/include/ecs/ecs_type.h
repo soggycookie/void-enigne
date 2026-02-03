@@ -23,11 +23,11 @@ namespace ECS
 
     struct ComponentSet
     {
-        ComponentId* ids;
+        ComponentId* idArr;
         uint32_t count;
 
         ComponentSet()
-            : ids(nullptr), count(0)
+            : idArr(nullptr), count(0)
         {
         }
 
@@ -35,25 +35,25 @@ namespace ECS
 
         ComponentSet(ComponentSet&& other) noexcept
         {
-            ids = other.ids;
+            idArr = other.idArr;
             count = other.count;
 
-            other.ids = nullptr;
+            other.idArr = nullptr;
             other.count = 0;            
         }
 
         ComponentSet(const ComponentSet& other)
         {
-            ids = other.ids;
+            idArr = other.idArr;
             count = other.count;
         }
 
         ComponentSet& operator=(ComponentSet&& other) noexcept
         {
-            ids = other.ids;
+            idArr = other.idArr;
             count = other.count;
 
-            other.ids = nullptr;
+            other.idArr = nullptr;
             other.count = 0;
 
             return *this;
@@ -61,7 +61,7 @@ namespace ECS
 
         ComponentSet& operator=(const ComponentSet& other)
         {
-            ids = other.ids;
+            idArr = other.idArr;
             count = other.count;
 
             return *this;
@@ -76,7 +76,7 @@ namespace ECS
 
             for(uint32_t i = 0; i < count; i++)
             {
-                if(ids[i] != other.ids[i])
+                if(idArr[i] != other.idArr[i])
                 {
                     return false;
                 }
@@ -94,7 +94,7 @@ namespace ECS
 
             for(uint32_t i = 0; i < count; i++)
             {
-                if(ids[i] != other.ids[i])
+                if(idArr[i] != other.idArr[i])
                 {
                     return true;
                 }
@@ -108,7 +108,7 @@ namespace ECS
             uint64_t h = 0;
             for(uint32_t i = 0; i < count; i++)
             {
-                h += HashU64(ids[i]);
+                h += HashU64(idArr[i]);
             }
 
             h /= count;
@@ -117,19 +117,19 @@ namespace ECS
         }
 
         void Sort(){
-            std::sort(ids, (ids + count));
+            std::sort(idArr, (idArr + count));
         }
 
         int32_t Search(ComponentId id)
         {
-            ComponentId* v = std::lower_bound(ids, (ids + count), id);
+            ComponentId* v = std::lower_bound(idArr, (idArr + count), id);
             
-            if(v == (ids + count) || *v != id)
+            if(v == (idArr + count) || *v != id)
             {
                 return -1;
             }
 
-            return static_cast<int32_t>(v - ids);
+            return static_cast<int32_t>(v - idArr);
         }
     };
 
@@ -235,12 +235,12 @@ namespace ECS
         Column* columns;
         EntityId* entities;
         ComponentSet components;
-        HashMap<ComponentDiff, Archetype*> addedEdges;
-        HashMap<ComponentDiff, Archetype*> removedEdges;
+        HashMap<ComponentDiff, Archetype*> addEdges;
+        HashMap<ComponentDiff, Archetype*> removeEdges;
 
         Archetype()
             : id(0), count(0), capacity(0), flags(0),
-            columns(nullptr), entities(nullptr), components(), addedEdges(), removedEdges()
+            columns(nullptr), entities(nullptr), components(), addEdges(), removeEdges()
         {
         }
 
@@ -253,12 +253,12 @@ namespace ECS
             columns = other.columns;
             entities = other.entities;
             components = std::move(other.components);
-            addedEdges = std::move(other.addedEdges);
-            removedEdges = std::move(other.removedEdges);
+            addEdges = std::move(other.addEdges);
+            removeEdges = std::move(other.removeEdges);
 
             other.columns = nullptr;
             other.entities = nullptr;
-            other.components.ids = nullptr;
+            other.components.idArr = nullptr;
             other.components.count = 0;
         }
 
@@ -267,12 +267,12 @@ namespace ECS
             columns = other.columns;
             entities = other.entities;
             components = std::move(other.components);
-            addedEdges = std::move(other.addedEdges);
-            removedEdges = std::move(other.removedEdges);
+            addEdges = std::move(other.addEdges);
+            removeEdges = std::move(other.removeEdges);
 
             other.columns = nullptr;
             other.entities = nullptr;
-            other.components.ids = nullptr;
+            other.components.idArr = nullptr;
             other.components.count = 0;
 
             return *this;
@@ -289,8 +289,9 @@ namespace ECS
 
     struct ArchetypeCache
     {
-        Archetype** archetypes;
+        Archetype** archetypeArr;
         uint32_t count;
+        uint32_t capacity;
     };
 
     struct ComponentRecord

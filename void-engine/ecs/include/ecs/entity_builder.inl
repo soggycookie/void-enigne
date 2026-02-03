@@ -11,6 +11,7 @@ namespace ECS
     template<typename Component>
     EntityBuilder& EntityBuilder::RemoveComponent()
     {
+        m_world->RemoveComponent<Component>(m_id);
         return *this;
     }
 
