@@ -19,8 +19,6 @@ namespace ECS
         return id;
     }
 
-     
-
     struct ComponentSet
     {
         ComponentId* idArr;
@@ -130,6 +128,16 @@ namespace ECS
             }
 
             return static_cast<int32_t>(v - idArr);
+        }
+
+        void Alloc(WorldAllocator& wAllocator, uint32_t capacity)
+        {
+            idArr = PTR_CAST(wAllocator.Alloc(capacity * sizeof(ComponentId)), ComponentId);
+        }
+
+        void Free(WorldAllocator& wAllocator)
+        {
+            wAllocator.Free(sizeof(ComponentId) * count, idArr);
         }
     };
 
@@ -307,20 +315,6 @@ namespace ECS
         uint32_t row;
         uint32_t dense;
         char name[16];
-    };
-
-    struct ArchetypeLinkedList
-    {
-        Archetype* archetype;
-        ArchetypeLinkedList* next;
-
-        static ArchetypeLinkedList* Alloc(WorldAllocator* wAllocator)
-        {
-            assert(wAllocator);
-            ArchetypeLinkedList* all = PTR_CAST(wAllocator->Calloc(sizeof(ArchetypeLinkedList)), ArchetypeLinkedList);
-        
-            return all;
-        }
     };
 }
 

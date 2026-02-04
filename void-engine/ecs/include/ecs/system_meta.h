@@ -1,5 +1,6 @@
 #pragma once
 #include "ecs_pch.h"
+#include "ecs_type.h"
 
 namespace ECS
 {
@@ -50,19 +51,39 @@ namespace ECS
     template<typename T, typename... Components>
     constexpr uint32_t index_of_v = index_of<T, Components...>::value;
 
+    struct ArchetypeLinkedList
+    {
+        Archetype* archetype;
+        ArchetypeLinkedList* next;
+
+        static ArchetypeLinkedList* Alloc(WorldAllocator& wAllocator)
+        {
+            ArchetypeLinkedList* all = PTR_CAST(wAllocator.Calloc(sizeof(ArchetypeLinkedList)), ArchetypeLinkedList);
+        
+            return all;
+        }
+
+        static void Free(WorldAllocator& wAllocator, void* addr)
+        {
+            wAllocator.Free(sizeof(ArchetypeLinkedList), addr); 
+        }
+    };
+
     struct SystemCallback
     {
         void* funcPtr;
         void (*invoker)(void*, Iterator*, void**);
-    
-        void Execute(Iterator* it, void** components)
+        ArchetypeLinkedList* archetypeList;
+        ComponentSet components;
+
+        void Execute(Iterator* it, void** componentsData)
         {
-            invoker(funcPtr, it, components);
+            invoker(funcPtr, it, componentsData);
         }
     };
 
     template<typename FuncArgs, typename... Components>
-    FuncArgs GetArgs(Iterator* it, void** components)
+    FuncArgs GetArgs(Iterator* it, void** componentsData)
     {
         if constexpr(is_iterator_ptr_v<FuncArgs>)
         {
@@ -75,11 +96,11 @@ namespace ECS
 
             if constexpr (std::is_const_v<std::remove_reference_t<FuncArgs>>)
             {
-                return *static_cast<const ComponentType*>(components[idx]);
+                return *static_cast<const ComponentType*>(componentsData[idx]);
             }
             else
             {
-                return *static_cast<ComponentType*>(components[idx]);
+                return *static_cast<ComponentType*>(componentsData[idx]);
             }
         }
     }
@@ -95,10 +116,10 @@ namespace ECS
 
         SystemCallback cb;
         cb.funcPtr = CAST(func, void*);
-        cb.invoker = [](void* fn, Iterator* it, void** components)
+        cb.invoker = [](void* fn, Iterator* it, void** componentsData)
             {
                 auto actualFunc = CAST(fn, void (*)(FuncArgs...));
-                actualFunc(GetArgs<FuncArgs, Components...>(it, components)...);
+                actualFunc(GetArgs<FuncArgs, Components...>(it, componentsData)...);
             };
 
         return cb;
