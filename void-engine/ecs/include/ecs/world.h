@@ -4,6 +4,7 @@
 #include "ds/hash_map.h"
 #include "entity.h"
 #include "ecs_type.h"
+#include "system_meta.h"
 
 namespace ECS
 {
@@ -677,6 +678,100 @@ namespace ECS
             Component& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, Component, sizeof(Component), r->row);
 
             return component;
+        }
+
+        //template<typename Component>
+        //void System(void (*func)(const Component& component))
+        //{
+        //    ComponentRecord& cr = m_componentRecords.GetValue(GetComponentId<Component>());
+
+        //    for(uint32_t idx = 0; idx < cr.archetypeCache.count ; idx++)
+        //    {
+        //        Archetype* archetype = cr.archetypeCache.archetypeArr[idx];
+
+        //        uint32_t colIdx = archetype->components.Search(cr.id);
+        //        
+        //        assert(colIdx != -1);
+        //        Column& col = archetype->columns[colIdx];
+        //        TypeInfo* ti = col.typeInfo;
+        //        for(uint32_t row = 0; row < archetype->count; row++)
+        //        {
+        //            Component* c = PTR_CAST(OFFSET(col.data, row * ti->size), Component);
+        //            
+        //            func(*c);
+        //        }
+        //    }
+        //}
+
+        template<typename... Components, typename... FuncArgs>
+        void System(void (*func)(FuncArgs...))
+        {
+            ComponentId ids[] = { GetComponentId<Components>()... };
+            uint32_t count = sizeof...(Components);
+            
+            ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(&m_wAllocator);
+
+            ArchetypeLinkedList* head = node;
+
+            for(uint32_t idx = 0; idx < 1; idx++)
+            {
+                ComponentRecord& cr = m_componentRecords.GetValue(ids[idx]);
+                
+                for(uint32_t aIdx = 0; aIdx < cr.archetypeCache.count; aIdx++)
+                {
+                    Archetype* archetype = cr.archetypeCache.archetypeArr[aIdx];
+                    bool skip = false;
+                    assert(archetype);
+
+                    for(uint32_t remainIdx = 1; remainIdx < count; remainIdx++)
+                    {
+                        //Archetype does not contain the same set of components
+                        if(archetype->components.Search(ids[remainIdx]) == -1)
+                        {
+                            skip = true;
+                            break;
+                        }
+                    }
+
+                    if(!skip)
+                    {
+                        node->archetype = archetype;
+                        ArchetypeLinkedList* newNode = ArchetypeLinkedList::Alloc(&m_wAllocator);
+                        node->next = newNode;
+                        node = newNode;
+                    }
+                }
+            }
+        
+            SystemCallback sc = CreateSystemCallback<Components..., FuncArgs...>(func);
+
+            while(head->archetype)
+            {
+                Archetype* archetype = head->archetype;
+                
+                Iterator* it = nullptr;
+                void* componentsData[sizeof...(Components)];
+
+                for(uint32_t row = 0; row < archetype->count; row++)
+                {
+                    for(uint32_t idx = 0; idx < count; idx++)
+                    {
+                        uint32_t colIdx = archetype->components.Search(ids[idx]);
+                        
+                        assert(colIdx != -1);
+                    
+                        Column& col = archetype->columns[colIdx];
+                        TypeInfo& ti = *col.typeInfo;
+                        void* comData = OFFSET(col.data, ti.size * row); 
+                        componentsData[idx] = comData;
+                    }
+
+                    //EXECUTE
+                    sc.Execute(it, componentsData);
+                }
+
+                head = head->next;
+            }
         }
 
         void Destroy()

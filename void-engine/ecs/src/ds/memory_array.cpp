@@ -9,7 +9,7 @@ namespace ECS
         m_elementSize = elementSize;
         m_count = 0;
 
-        m_array = AllocN(allocator, capacity);
+        m_array = CallocN(allocator, capacity);
         m_capacity = capacity;
     }
 

@@ -309,6 +309,19 @@ namespace ECS
         char name[16];
     };
 
+    struct ArchetypeLinkedList
+    {
+        Archetype* archetype;
+        ArchetypeLinkedList* next;
+
+        static ArchetypeLinkedList* Alloc(WorldAllocator* wAllocator)
+        {
+            assert(wAllocator);
+            ArchetypeLinkedList* all = PTR_CAST(wAllocator->Calloc(sizeof(ArchetypeLinkedList)), ArchetypeLinkedList);
+        
+            return all;
+        }
+    };
 }
 
 template<typename T>
