@@ -1,4 +1,5 @@
 #include "world.h"
+#include "internal_component.h"
 
 namespace ECS
 {
@@ -7,9 +8,25 @@ namespace ECS
     {
         auto w = new World();
         w->Init();
-
+        //w->CreateInternalEntity();
+        w->RegisterInternalComponents();
         return w;
     }
+
+    void World::RegisterInternalComponents()
+    {
+        RegisterComponent<EcsName>().Id(EcsNameId).Register();
+        RegisterComponent<EcsSystem>().Id(EcsSystemId).Register();
+
+        RegisterTag<EcsPhase>().Id(EcsPhaseId).Register();
+        RegisterTag<EcsArchetype>().Id(EcsArchetypeId).Register();
+        RegisterTag<EcsPipeline>().Id(EcsPipelineId).Register();
+
+        RegisterPair<ChildOf>(true).Id(ChildOfId).Register();
+        RegisterPair<DependOn>(false).Id(DependOnId).Register();
+        RegisterPair<Toggle>(false, true).Id(ToggleId).Register();
+    }
+
 
     void DestroyWorld(World* world)
     {
@@ -17,7 +34,7 @@ namespace ECS
         delete world;
     }
 
-    Entity World::CreateEntity()
+    Entity World::CreateEntity(EntityId parent)
     {
         uint64_t id = m_entityIndex.GetReservedFreeId();
 
@@ -41,15 +58,17 @@ namespace ECS
         r.archetype = nullptr;
         r.dense = 0;
         r.row = 0;
-        std::snprintf(r.name, 16, "Entity");
+        std::snprintf(r.name, 16, "Entity %u", e.GetLowId());
 
         r.dense = m_entityIndex.PushBack(e.GetFullId(), r, newId);
         GetEntityRecord(e.GetFullId())->dense = r.dense;
 
+
+
         return e;
     }
 
-    Entity World::CreateEntity(const char* name)
+    Entity World::CreateEntity(const char* name, EntityId parent)
     {
         uint64_t id = m_entityIndex.GetReservedFreeId();
         bool newId = false;
@@ -80,7 +99,7 @@ namespace ECS
         return e;
     }
 
-    Entity World::CreateEntity(LoEntityId id)
+    Entity World::CreateEntity(LoEntityId id, EntityId parent)
     {
         if(!m_entityIndex.isValidDense(id))
         {
@@ -130,7 +149,7 @@ namespace ECS
         }
     }
 
-    Entity World::CreateEntity(LoEntityId id, const char* name)
+    Entity World::CreateEntity(LoEntityId id, const char* name, EntityId parent)
     {
         if(!m_entityIndex.isValidDense(id))
         {
@@ -178,6 +197,95 @@ namespace ECS
             return e;
         }
     }
+
+    EntityId World::GetFreeId()
+    {
+        return ++m_nextFreeId;
+    }
+
+
+    //Entity World::CreateEntity(EntityDesc& desc)
+    //{
+    //    if(!m_entityIndex.isValidDense(desc.id))
+    //    {
+    //        Entity e(desc.id, this);
+
+    //        EntityRecord r;
+    //        r.archetype = nullptr;
+    //        r.dense = 0;
+    //        r.row = 0;
+    //        std::snprintf(r.name, 16, desc.name);
+
+    //        r.dense = m_entityIndex.PushBack(e.GetFullId(), r, true);
+    //        EntityRecord& er = *GetEntityRecord(e.GetFullId());
+    //        er.dense = r.dense;
+
+    //        ResolveEntityDesc(er, desc);
+
+    //        return e;
+    //    }
+    //    else
+    //    {
+    //        uint64_t freeId = m_entityIndex.GetReservedFreeId();
+    //        bool newId = false;
+    //        if(freeId == 0)
+    //        {
+    //            newId = true;
+
+    //            while(m_entityIndex.isValidDense(++m_nextFreeId));
+
+    //            freeId = m_nextFreeId;
+    //        }
+    //        Entity e(freeId, this);
+
+    //        if(!newId)
+    //        {
+    //            e.IncreGenCount();
+    //        }
+
+    //        EntityRecord r;
+    //        r.archetype = nullptr;
+    //        r.dense = 0;
+    //        r.row = 0;
+    //        std::snprintf(r.name, 16, desc.name);
+
+    //        r.dense = m_entityIndex.PushBack(e.GetFullId(), r, newId);
+    //        EntityRecord& er = *GetEntityRecord(e.GetFullId());
+    //        er.dense = r.dense;
+
+    //        ResolveEntityDesc(er, desc);
+
+    //        return e;
+    //    }
+    //}
+
+    //void World::ResolveEntityDesc(EntityRecord& r, EntityDesc& desc)
+    //{
+    //    ComponentSet cs;
+    //    Archetype* destArchetype = r.archetype;
+    //    if(desc.parent != 0){
+    //        ComponentDiff cdiff;
+    //        cdiff.Alloc(m_wAllocator, 1);
+    //        cdiff.idArr[0] = MakePair(desc.id, desc.parent);
+    //    }
+    //    if(desc.name)
+    //    {
+    //        ComponentDiff cdiff;
+    //        cdiff.Alloc(m_wAllocator, 1);
+    //        cdiff.idArr[0] = EcsNameId;
+    //        destArchetype = GetOrCreateArchetype_Add(destArchetype, std::move(cdiff));
+    //    }
+
+    //    destArchetype = GetOrCreateArchetype_Add(destArchetype, std::move(desc.add));
+
+    //    r.archetype = destArchetype;
+    //    
+    //    if(destArchetype->count == destArchetype->capacity)
+    //    {
+    //        destArchetype->
+    //    }
+    //    //Archetype* destArchetype = GetOrCreateArchetype_Add(r.archetype, );
+    //}
 
     EntityRecord* World::GetEntityRecord(EntityId id)
     {
@@ -199,7 +307,7 @@ namespace ECS
         InitAllocators();
         m_entityIndex.Init(&m_wAllocator, nullptr, 8, true);
         m_archetypes.Init(&m_wAllocator, &m_allocators.archetypes, 8, false);
-        m_componentRecords.Init(&m_wAllocator, 8);
+        m_componentIndex.Init(&m_wAllocator, 8);
         m_typeInfos.Init(&m_wAllocator, 8);
         m_mappedArchetype.Init(&m_wAllocator, 8);
 
@@ -372,20 +480,15 @@ namespace ECS
         //NOTE: Test this
         for(uint32_t idx = 0; idx < componentSet.count; idx++)
         {
-            ComponentRecord& cr = m_componentRecords[componentSet.idArr[idx]];
+            ComponentRecord& cr = m_componentIndex[componentSet.idArr[idx]];
 
-            if(cr.archetypeCache.count == cr.archetypeCache.capacity)
+            if(cr.archetypeStore.count == cr.archetypeStore.capacity)
             {
-                uint32_t newCapacity = cr.archetypeCache.capacity * 2;
-                Archetype** newArchetypeArr = PTR_CAST(m_wAllocator.Alloc(sizeof(Archetype*) * newCapacity), Archetype*);
-                std::memcpy(newArchetypeArr, cr.archetypeCache.archetypeArr, sizeof(Archetype*) * cr.archetypeCache.capacity);
-
-                m_wAllocator.Free(sizeof(Archetype*) * cr.archetypeCache.capacity, cr.archetypeCache.archetypeArr);
-                cr.archetypeCache.archetypeArr = newArchetypeArr;
+                cr.archetypeStore.Grow(m_wAllocator);
             }
 
-            cr.archetypeCache.archetypeArr[cr.archetypeCache.count] = rArchetype;
-            ++cr.archetypeCache.count;
+            cr.archetypeStore.store[cr.archetypeStore.count] = rArchetype;
+            ++cr.archetypeStore.count;
         }
 
 
@@ -404,7 +507,7 @@ namespace ECS
         return nullptr;
     }
 
-    Archetype* World::GetOrCreateArchetype_Add(Archetype* src, ComponentDiff&& componentDiff)
+    Archetype* World::GetOrCreateArchetype_Add(Archetype* src, ComponentId id)
     {
         uint32_t srcCount = 0;
         if(src)
@@ -417,22 +520,20 @@ namespace ECS
         //find or create edge
         if(src)
         {
-            if(src->addEdges.ContainsKey(componentDiff))
+            if(src->addEdges.ContainsKey(id))
             {
-                dest = src->addEdges[componentDiff];
-                m_wAllocator.Free(sizeof(ComponentId) * componentDiff.count, componentDiff.idArr);
+                dest = src->addEdges[id];
             }
             else
             {
                 //CREATE EDEGE
-                uint32_t count = srcCount + componentDiff.count;
-                uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
+                uint32_t count = srcCount + 1;
 
                 ComponentSet cs;
-                cs.idArr = arr;
-                cs.count = count;
+                cs.Alloc(m_wAllocator, count);
                 std::memcpy(cs.idArr, src->components.idArr, srcCount * sizeof(ComponentId));
-                std::memcpy((cs.idArr + srcCount), componentDiff.idArr, componentDiff.count * sizeof(ComponentId));
+                cs.idArr[count - 1] = id;
+                cs.count = count;
                 cs.Sort();
 
                 dest = GetArchetype(cs);
@@ -446,22 +547,24 @@ namespace ECS
                     m_wAllocator.Free(sizeof(ComponentId) * cs.count, cs.idArr);
                 }
 
-                src->addEdges.Insert(std::move(componentDiff), dest);
+                src->addEdges.Insert(id, dest);
             }
         }
         else
         {
-            componentDiff.Sort();
+            ComponentSet cs;
+            cs.Alloc(m_wAllocator, 1);
+            cs.idArr[0] = id;
 
-            dest = GetArchetype(componentDiff);
+            dest = GetArchetype(cs);
 
             if(!dest)
             {
-                dest = CreateArchetype(std::move(componentDiff));
+                dest = CreateArchetype(std::move(cs));
             }
             else
             {
-                m_wAllocator.Free(sizeof(ComponentId) * componentDiff.count, componentDiff.idArr);
+                m_wAllocator.Free(sizeof(ComponentId), cs.idArr);
             }
         }
 
@@ -470,7 +573,7 @@ namespace ECS
         return dest;
     }
 
-    Archetype* World::GetOrCreateArchetype_Remove(Archetype* src, ComponentDiff&& componentDiff)
+    Archetype* World::GetOrCreateArchetype_Remove(Archetype* src, ComponentId id)
     {
         assert(src);
 
@@ -479,43 +582,26 @@ namespace ECS
 
         Archetype* dest = nullptr;
 
-        if(src->removeEdges.ContainsKey(componentDiff))
+        if(src->removeEdges.ContainsKey(id))
         {
-            dest = src->removeEdges[componentDiff];
-            m_wAllocator.Free(sizeof(ComponentId) * componentDiff.count, componentDiff.idArr);
+            dest = src->removeEdges[id];
         }
         else
         {
             //CREATE EDEGE
-            uint32_t count = srcCount - componentDiff.count;
+            uint32_t count = srcCount - 1;
             assert(count >= 0);
-            ComponentId* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
 
             ComponentSet cs;
-            cs.idArr = arr;
+            cs.Alloc(m_wAllocator, count);
             cs.count = count;
 
             //TODO: Review this later
-            uint32_t csIdx = 0;
+            uint32_t rIdx = src->components.Search(id);
+            assert(rIdx != -1);
 
-            for(uint32_t sIdx = 0; sIdx < src->components.count; sIdx++)
-            {
-                bool removed = false;
-                for(uint32_t cdIdx = 0; cdIdx < componentDiff.count; cdIdx++)
-                {
-                    if(src->components.idArr[sIdx] == componentDiff.idArr[cdIdx])
-                    {
-                        removed = true;
-                    }
-                }
-
-                if(!removed)
-                {
-                    cs.idArr[csIdx] = src->components.idArr[sIdx];
-                    ++csIdx;
-                }
-            }
-
+            std::memcpy(cs.idArr, src->components.idArr, rIdx * sizeof(ComponentId));
+            std::memcpy(cs.idArr + rIdx, src->components.idArr + rIdx + 1, (count - rIdx) * sizeof(ComponentId));
             cs.Sort();
 
             dest = GetArchetype(cs);
@@ -529,7 +615,7 @@ namespace ECS
                 m_wAllocator.Free(sizeof(ComponentId) * cs.count, cs.idArr);
             }
 
-            src->removeEdges.Insert(std::move(componentDiff), dest);
+            src->removeEdges.Insert(id, dest);
         }
 
         assert(dest);
@@ -555,10 +641,13 @@ namespace ECS
                 {
                     Archetype* archetype = head->archetype;
 
-                    Iterator* it = nullptr;
-
                     for(uint32_t row = 0; row < archetype->count; row++)
                     {
+                        QueryIterator it;
+                        it.archetype = archetype;
+                        it.world = this;
+                        it.row = row;
+
                         for(uint32_t idx = 0; idx < sc.components.count; idx++)
                         {
                             uint32_t colIdx = archetype->components.Search(sc.components.idArr[idx]);
@@ -572,7 +661,7 @@ namespace ECS
                         }
 
                         //EXECUTE
-                        sc.Execute(it, componentsData);
+                        sc.Execute(&it, componentsData);
                     }
 
                     head = head->next;
@@ -623,7 +712,7 @@ namespace ECS
         m_entityIndex.Destroy();
 
         //NOTE: should clear the data if keeping metadata between world is favorable 
-        m_componentRecords.Destroy();
+        m_componentIndex.Destroy();
 
         m_mappedArchetype.Destroy();
         m_typeInfos.Destroy();

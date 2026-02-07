@@ -54,5 +54,4 @@ namespace ECS
 
         return n + 1;
     }
-
 }

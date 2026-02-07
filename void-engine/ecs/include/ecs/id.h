@@ -1,12 +1,10 @@
 #pragma once
 #include "ecs_pch.h"
+#include "ecs_type.h"
 
 namespace ECS
 {
-    using EntityId = uint64_t;
-    using LoEntityId = uint32_t;
-    using HiEntityId = uint32_t;
-    using GenCount = uint16_t;
+
 
 #define ENTITY_ID_MASK      0xFFFFFFFFULL
 #define ENTITY_GEN_MASK     0xFFFFULL

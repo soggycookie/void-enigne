@@ -395,7 +395,6 @@ namespace ECS
             {
                 uint32_t newCapacity = 0;
                 data = m_allocator->CallocN(sizeof(Bucket), capacity, newCapacity);
-                m_bucketCount = newCapacity;
             }
             else
             {
@@ -433,6 +432,10 @@ namespace ECS
             if(m_allocator)
             {
                 m_allocator->Free(sizeof(Bucket) * m_bucketCount, m_array);
+            }
+            else
+            {
+                std::free(m_array);
             }
 
             m_bucketCount = newBucketCount;

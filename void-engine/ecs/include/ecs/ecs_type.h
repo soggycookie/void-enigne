@@ -2,32 +2,115 @@
 #include "ecs_pch.h"
 #include "ds/hash_map.h"
 
+
+template<typename T>
+struct ComponentName;
+
+#define ECS_COMPONENT(T) \
+        template<> \
+        struct ComponentName<T> \
+        { \
+            static constexpr const char* name = #T; \
+        }; 
+
+
 namespace ECS
 {
-    using ComponentId = uint32_t;
+    using EntityId = uint64_t;
+    using LoEntityId = uint32_t;
+    using HiEntityId = uint32_t;
+    using GenCount = uint16_t;
+    using ComponentId = EntityId;
 
-    inline ComponentId GetNextComponentId()
+    inline EntityId MakePair(EntityId first, EntityId sec)
     {
-        static ComponentId id = 0;
-        return id++;
+        constexpr uint32_t mask = 0xFFFFFFFFULL;
+
+        LoEntityId f = first & mask;
+        LoEntityId s = (sec >> 32) & mask;
+
+        EntityId pair = (EntityId) f | ((EntityId)s << 32);
+
+        return pair;
     }
+
+    //inline ComponentId GetNextComponentId()
+    //{
+    //    static ComponentId id = 0;
+    //    return id++;
+    //}
+
+
+    //template<typename T>
+    //ComponentId GetComponentId()
+    //{
+    //    static ComponentId id = GetNextComponentId();
+    //    return id;
+    //}
+
+    class World;
+    template<typename T>
+    struct ComponentTypeId
+    {
+        static ComponentId id;
+
+        static void Id(ComponentId cid)
+        {
+            id = cid;
+        }
+    };
 
     template<typename T>
-    ComponentId GetComponentId()
+    ComponentId ComponentTypeId<T>::id = 0;
+
+    template<typename T>
+    struct Store
     {
-        static ComponentId id = GetNextComponentId();
-        return id;
-    }
+        T* store;
+        uint32_t count;
+        uint32_t capacity;
+
+        void Init(WorldAllocator& wAllocator)
+        {
+            uint32_t storeCapacity = 8;
+            count = 0;
+            store =
+                PTR_CAST(wAllocator.AllocN(sizeof(T), storeCapacity, storeCapacity), T);
+            capacity = storeCapacity;
+        }
+
+        void Grow(WorldAllocator& wAllocator)
+        {
+            uint32_t newStoreCapacity = capacity * 2;
+            T* newStore =
+                PTR_CAST(wAllocator.AllocN(sizeof(T), newStoreCapacity, newStoreCapacity), T);
+
+            std::memcpy(newStore, store, sizeof(T) * capacity);
+
+            wAllocator.Free(sizeof(T) * capacity, store);
+
+            store = newStore;
+            capacity = newStoreCapacity;
+        }
+
+        void Add(T id)
+        {
+            store[count] = id;
+            ++count;
+        }
+
+        void Destroy(WorldAllocator& wAllocator)
+        {
+            wAllocator.Free(sizeof(T) * capacity, store);
+        }
+    };
 
     struct ComponentSet
     {
         ComponentId* idArr;
         uint32_t count;
 
-        ComponentSet()
-            : idArr(nullptr), count(0)
-        {
-        }
+        ComponentSet() = default;
 
         ~ComponentSet() = default;
 
@@ -171,56 +254,25 @@ namespace ECS
         void (*onSet)(void* dest);
     };
 
+#define COMPONENT_TYPE      1 << 0
+#define TAG_TYPE            1 << 1
+#define PAIR_TYPE           1 << 2
+#define TYPE_HAS_DATA       1 << 3
+#define EXCLUSIVE_PAIR      1 << 4
+
     struct TypeInfo
     {
         ComponentId id;
         uint32_t alignment;
-        uint64_t size;
-        EntityId entityId;
-        const char* name;
+        uint32_t size;
         TypeHook hook;
+        uint32_t flags;
 
-    };
-
-    template<typename Component>
-    struct TypeInfoBuilder
-    {
-        TypeInfo& ti;
-
-        void Ctor(CtorHook ctor)
+        bool HasData()
         {
-            ti.hook.ctor = ctor;
+            return (flags & TYPE_HAS_DATA) > 0;
         }
 
-        void CopyCtor(CopyCtorHook cctor)
-        {
-            ti.hook.copyCtor = cctor;
-        }
-
-        void MoveCtor(MoveCtorHook mctor)
-        {
-            ti.hook.moveCtor = mctor;
-        }
-
-        void Dtor(DtorHook dtor)
-        {
-            ti.hook.dtor = dtor;
-        }
-
-        void AddEvent(AddEventHook e)
-        {
-            ti.hook.onAdd = e;
-        }
-        
-        void RemoveEvent(RemoveEventHook e)
-        {
-            ti.hook.onRemove = e;
-        }
-        
-        void SetEvent(SetEventHook e)
-        {
-            ti.hook.onSet = e;
-        }
     };
 
     struct Column
@@ -243,8 +295,9 @@ namespace ECS
         Column* columns;
         EntityId* entities;
         ComponentSet components;
-        HashMap<ComponentDiff, Archetype*> addEdges;
-        HashMap<ComponentDiff, Archetype*> removeEdges;
+        uint32_t* componentMap;
+        HashMap<ComponentId, Archetype*> addEdges;
+        HashMap<ComponentId, Archetype*> removeEdges;
 
         Archetype()
             : id(0), count(0), capacity(0), flags(0),
@@ -295,17 +348,10 @@ namespace ECS
         return ++id;
     }
 
-    struct ArchetypeCache
-    {
-        Archetype** archetypeArr;
-        uint32_t count;
-        uint32_t capacity;
-    };
-
     struct ComponentRecord
     {
         ComponentId id;
-        ArchetypeCache archetypeCache;
+        Store<Archetype*> archetypeStore;
         TypeInfo* typeInfo;
     };
 
@@ -316,17 +362,14 @@ namespace ECS
         uint32_t dense;
         char name[16];
     };
+
+    struct EntityDesc
+    {
+        EntityId id;
+        EntityId parent;
+        ComponentSet add;
+        Store<void*> componentData;
+        const char* name;
+    };
 }
 
-template<typename T>
-struct ComponentName
-{
-    static constexpr const char* name;
-};
-
-#define ECS_COMPONENT(T) \
-    template<> \
-    struct ComponentName<T> \
-    { \
-        static constexpr const char* name = #T; \
-    }; 

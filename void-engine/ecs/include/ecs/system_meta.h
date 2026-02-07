@@ -1,19 +1,12 @@
 #pragma once
 #include "ecs_pch.h"
 #include "ecs_type.h"
+#include "query.h"
 
 namespace ECS
 {
-    class World;
-
-    struct Iterator
-    {
-        World* world;
-        double deltaTime;
-    };
-
     template<typename T>
-    constexpr bool is_iterator_ptr_v = std::is_same_v<T, Iterator*>;
+    constexpr bool is_iterator_v = std::is_same_v<T, QueryIterator>;
 
     template<typename T>
     using decay_t = typename std::remove_const<typename std::remove_reference<T>::type>::type;
@@ -51,43 +44,32 @@ namespace ECS
     template<typename T, typename... Components>
     constexpr uint32_t index_of_v = index_of<T, Components...>::value;
 
-    struct ArchetypeLinkedList
-    {
-        Archetype* archetype;
-        ArchetypeLinkedList* next;
-
-        static ArchetypeLinkedList* Alloc(WorldAllocator& wAllocator)
-        {
-            ArchetypeLinkedList* all = PTR_CAST(wAllocator.Calloc(sizeof(ArchetypeLinkedList)), ArchetypeLinkedList);
-        
-            return all;
-        }
-
-        static void Free(WorldAllocator& wAllocator, void* addr)
-        {
-            wAllocator.Free(sizeof(ArchetypeLinkedList), addr); 
-        }
-    };
-
     struct SystemCallback
     {
         void* funcPtr;
-        void (*invoker)(void*, Iterator*, void**);
+        void (*invoker)(void*, QueryIterator*, void**);
         ArchetypeLinkedList* archetypeList;
         ComponentSet components;
 
-        void Execute(Iterator* it, void** componentsData)
+        void Execute(QueryIterator* it, void** componentsData)
         {
             invoker(funcPtr, it, componentsData);
         }
     };
 
     template<typename FuncArgs, typename... Components>
-    FuncArgs GetArgs(Iterator* it, void** componentsData)
+    FuncArgs GetArgs(QueryIterator* it, void** componentsData)
     {
-        if constexpr(is_iterator_ptr_v<FuncArgs>)
+        if constexpr(is_iterator_v<decay_t<FuncArgs>>)
         {
-            return it;
+            if(std::is_const_v<FuncArgs>)
+            {
+                return *reinterpret_cast<const QueryIterator*>(it);
+            }
+            else
+            {
+                return *it;
+            }
         }
         else
         {
@@ -109,14 +91,14 @@ namespace ECS
     SystemCallback CreateSystemCallback(void (*func)(FuncArgs...))
     {
         static_assert((... && 
-                      (is_iterator_ptr_v<FuncArgs> || 
+                      (is_iterator_v<FuncArgs> || 
                       (is_in_component_list<FuncArgs, Components...>::value) &&
                       std::is_reference_v<FuncArgs>
                       )), "Invalid system parameters!");
 
         SystemCallback cb;
         cb.funcPtr = CAST(func, void*);
-        cb.invoker = [](void* fn, Iterator* it, void** componentsData)
+        cb.invoker = [](void* fn, QueryIterator* it, void** componentsData)
             {
                 auto actualFunc = CAST(fn, void (*)(FuncArgs...));
                 actualFunc(GetArgs<FuncArgs, Components...>(it, componentsData)...);
