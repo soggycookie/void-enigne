@@ -78,11 +78,25 @@ namespace ECS
 
             if constexpr (std::is_const_v<std::remove_reference_t<FuncArgs>>)
             {
-                return *static_cast<const ComponentType*>(componentsData[idx]);
+                void* data = componentsData[idx];
+
+                if(data == nullptr)
+                {
+                    assert(0 && "Component has no data!");
+                }
+
+                return *static_cast<const ComponentType*>(data);
             }
             else
             {
-                return *static_cast<ComponentType*>(componentsData[idx]);
+                void* data = componentsData[idx];
+
+                if(data == nullptr)
+                {
+                    assert(0 && "Component has no data!");
+                }
+
+                return *static_cast<ComponentType*>(data);
             }
         }
     }

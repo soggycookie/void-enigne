@@ -4,30 +4,6 @@
 
 namespace ECS
 {
-
-
-#define ENTITY_ID_MASK      0xFFFFFFFFULL
-#define ENTITY_GEN_MASK     0xFFFFULL
-
-#define LO_ENTITY_ID(x) \
-    ((uint32_t)((x) & ENTITY_ID_MASK))
-
-#define HI_ENTITY_ID(x) \
-    ((uint32_t)(((x) >> 32) & ENTITY_ID_MASK))
-
-#define ENTITY_GEN_COUNT(x) \
-    ((uint16_t)(((x) >> 32) & ENTITY_GEN_MASK))
-
-#define MAKE_ENTITY_ID(lo, hi) \
-    ((((uint64_t)(hi) & ENTITY_ID_MASK) << 32) | \
-     ((uint64_t)(lo)  & ENTITY_ID_MASK))
-
-#define INCRE_GEN_COUNT(x) \
-        MAKE_ENTITY_ID( \
-            LO_ENTITY_ID(x), \
-            (uint16_t)(ENTITY_GEN_COUNT(x) + 1) \
-        )
-
     class Id
     {
     protected:

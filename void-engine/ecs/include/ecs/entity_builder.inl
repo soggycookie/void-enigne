@@ -9,6 +9,13 @@ namespace ECS
     }
 
     template<typename Component>
+    EntityBuilder& EntityBuilder::AddTag()
+    {
+        m_world->AddTag<Component>(m_id);
+        return *this;
+    }
+
+    template<typename Component>
     EntityBuilder& EntityBuilder::RemoveComponent()
     {
         m_world->RemoveComponent<Component>(m_id);

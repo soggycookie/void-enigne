@@ -14,8 +14,32 @@ struct ComponentName;
         }; 
 
 
+
 namespace ECS
 {
+
+#define ENTITY_ID_MASK      0xFFFFFFFFULL
+#define ENTITY_GEN_MASK     0xFFFFULL
+
+#define LO_ENTITY_ID(x) \
+    ((uint32_t)((x) & ENTITY_ID_MASK))
+
+#define HI_ENTITY_ID(x) \
+    ((uint32_t)(((x) >> 32) & ENTITY_ID_MASK))
+
+#define ENTITY_GEN_COUNT(x) \
+    ((uint16_t)(((x) >> 32) & ENTITY_GEN_MASK))
+
+#define MAKE_ENTITY_ID(lo, hi) \
+    ((((uint64_t)(hi) & ENTITY_ID_MASK) << 32) | \
+     ((uint64_t)(lo)  & ENTITY_ID_MASK))
+
+#define INCRE_GEN_COUNT(x) \
+        MAKE_ENTITY_ID( \
+            LO_ENTITY_ID(x), \
+            (uint16_t)(ENTITY_GEN_COUNT(x) + 1) \
+        )
+
     using EntityId = uint64_t;
     using LoEntityId = uint32_t;
     using HiEntityId = uint32_t;
@@ -213,6 +237,34 @@ namespace ECS
             return static_cast<int32_t>(v - idArr);
         }
 
+        bool Has(ComponentId id)
+        {
+            ComponentId* v = std::lower_bound(idArr, (idArr + count), id);
+            
+            if(v == (idArr + count) || *v != id)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        bool HasPair(ComponentId id)
+        {
+            auto compare = [](ComponentId a, ComponentId b) {
+                return LO_ENTITY_ID(a) < LO_ENTITY_ID(b);
+            };      
+
+            ComponentId* v = std::lower_bound(idArr, (idArr + count), LO_ENTITY_ID(id), compare);
+    
+            if(v == (idArr + count) || *v != id)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         void Alloc(WorldAllocator& wAllocator, uint32_t capacity)
         {
             idArr = PTR_CAST(wAllocator.Alloc(capacity * sizeof(ComponentId)), ComponentId);
@@ -259,6 +311,7 @@ namespace ECS
 #define PAIR_TYPE           1 << 2
 #define TYPE_HAS_DATA       1 << 3
 #define EXCLUSIVE_PAIR      1 << 4
+#define BITSET_DATA         1 << 5
 
     struct TypeInfo
     {
@@ -270,9 +323,18 @@ namespace ECS
 
         bool HasData()
         {
-            return (flags & TYPE_HAS_DATA) > 0;
+            return (flags & TYPE_HAS_DATA) == TYPE_HAS_DATA;
         }
 
+        bool IsExclusive()
+        {
+            return (flags & (EXCLUSIVE_PAIR | PAIR_TYPE)) ==  (EXCLUSIVE_PAIR | PAIR_TYPE);
+        }
+
+        bool IsDataBitset()
+        {
+            return (flags & (TYPE_HAS_DATA | BITSET_DATA)) == (TYPE_HAS_DATA | BITSET_DATA);
+        }
     };
 
     struct Column
@@ -295,9 +357,10 @@ namespace ECS
         Column* columns;
         EntityId* entities;
         ComponentSet components;
-        uint32_t* componentMap;
+        int32_t* componentMap;
         HashMap<ComponentId, Archetype*> addEdges;
         HashMap<ComponentId, Archetype*> removeEdges;
+        uint32_t columnCount;
 
         Archetype()
             : id(0), count(0), capacity(0), flags(0),
@@ -311,8 +374,10 @@ namespace ECS
             count = other.count;
             capacity = other.capacity;
             flags = other.flags;
+            columnCount = other.columnCount;
             columns = other.columns;
             entities = other.entities;
+            componentMap = other.componentMap;
             components = std::move(other.components);
             addEdges = std::move(other.addEdges);
             removeEdges = std::move(other.removeEdges);
@@ -325,8 +390,14 @@ namespace ECS
 
         Archetype& operator=(Archetype&& other) noexcept
         {
+            id = other.id;
+            count = other.count;
+            capacity = other.capacity;
+            flags = other.flags;
+            columnCount = other.columnCount;
             columns = other.columns;
             entities = other.entities;
+            componentMap = other.componentMap;
             components = std::move(other.components);
             addEdges = std::move(other.addEdges);
             removeEdges = std::move(other.removeEdges);
@@ -360,7 +431,6 @@ namespace ECS
         Archetype* archetype;
         uint32_t row;
         uint32_t dense;
-        char name[16];
     };
 
     struct EntityDesc

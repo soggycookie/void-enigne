@@ -36,29 +36,35 @@ namespace ECS
         Entity CreateEntity(LoEntityId id, EntityId parent);
         Entity CreateEntity(LoEntityId id, const char* name, EntityId parent);
 
-        //Entity CreateEntity(EntityDesc& desc);
+        Entity CreateEntity(EntityDesc& desc);
 
         EntityId GetFreeId();
 
         EntityRecord* GetEntityRecord(EntityId id);
         Entity GetEntity(EntityId id);
 
-        //void ResolveEntityDesc(EntityRecord& r, EntityDesc& desc);
+        void ResolveEntityDesc(EntityRecord& r, EntityDesc& desc);
 
         template<typename Component>
-        TypeInfoBuilder<Component> RegisterComponent();
+        TypeInfoBuilder<Component> Component();
 
         template<typename Tag>
-        TypeInfoBuilder<Tag> RegisterTag();
+        TypeInfoBuilder<Tag> Tag();
         
         template<typename Pair>
-        TypeInfoBuilder<Pair> RegisterPair(bool isExclusive, bool isToggle = false);
+        TypeInfoBuilder<Pair> Pair(bool isExclusive, bool isToggle = false);
 
         template<typename Component>
         void AddComponent(EntityId id);
 
         template<typename Component>
         void RemoveComponent(EntityId id);
+
+        template<typename Component>
+        void AddPair(EntityId id);
+
+        template<typename Component>
+        void AddTag(EntityId id);
 
         void GrowArchetype(Archetype& archetype);
 
@@ -72,8 +78,9 @@ namespace ECS
 
         Archetype* GetOrCreateArchetype_Remove(Archetype* src, ComponentId id);
 
-        template<typename Component>
-        void Set(EntityId id, Component&& c);
+
+        template<typename T>
+        void Set(EntityId id, T&& c);
 
         template<typename Component>
         Component& Get(EntityId id);

@@ -2,7 +2,7 @@
 namespace ECS
 {
     template<typename Component>
-    TypeInfoBuilder<Component> World::RegisterComponent()
+    TypeInfoBuilder<Component> World::Component()
     {
         TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
         ti->size = sizeof(Component);
@@ -76,34 +76,18 @@ namespace ECS
             }
         );
 
-        //if(m_componentStore.capacity == m_componentStore.count)
-        //{
-        //    m_componentStore.Grow(m_wAllocator);
-        //}
-        //m_componentStore.Add(e.GetFullId());
-
-        //ComponentRecord cr;
-        //cr.id = ti->id;
-        //cr.typeInfo = ti;
-
-        //cr.archetypeStore.Init(m_wAllocator);
-
-        //assert(cr.archetypeStore.store);
-
-        //m_componentIndex.Insert(ti->id, std::move(cr));
-        //m_typeInfos.Insert(ti->id, ti);
         return tiBuilder;
     }
 
     template<typename Tag>
-    TypeInfoBuilder<Tag> World::RegisterTag()
+    TypeInfoBuilder<Tag> World::Tag()
     {
         TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
         ti->size = sizeof(Tag);
         ti->alignment = alignof(Tag);
         ti->flags = (TAG_TYPE);
-        //Entity e = CreateEntity(ComponentName<Tag>::name, 0);
         ti->id = 0;
+        //Entity e = CreateEntity(ComponentName<Tag>::name, 0);
 
         assert(std::is_destructible_v<Tag>);
         assert(std::is_trivially_constructible_v<Tag>);
@@ -133,26 +117,11 @@ namespace ECS
             }
         );
 
-        //if(m_componentStore.capacity == m_componentStore.count)
-        //{
-        //    m_componentStore.Grow(m_wAllocator);
-        //}
-        //m_componentStore.Add(ti->id);
-
-        //ComponentRecord cr;
-        //cr.id = ti->id;
-        //cr.typeInfo = ti;
-        //cr.archetypeStore.Init(m_wAllocator);
-
-        //assert(cr.archetypeStore.store);
-
-        //m_componentIndex.Insert(ti->id, std::move(cr));
-        //m_typeInfos.Insert(ti->id, ti);
         return tiBuilder;
     }
 
     template<typename Pair>
-    TypeInfoBuilder<Pair> World::RegisterPair(bool isExclusive, bool isToggle)
+    TypeInfoBuilder<Pair> World::Pair(bool isExclusive, bool isToggle)
     {
         TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
         ti->size = sizeof(Pair);
@@ -263,25 +232,18 @@ namespace ECS
     void World::AddComponent(EntityId id)
     {
         EntityRecord* r = m_entityIndex.GetPageData(id);
+        TypeInfo* cTi = m_typeInfos[ComponentTypeId<Component>::id];
 
         assert(r);
 
         if(r->archetype)
         {
-            int32_t s = r->archetype->components.Search(GetComponentId<Component>());
+            int32_t s = r->archetype->components.Search(ComponentTypeId<Component>::id);
 
             assert(s == -1);
         }
 
-        uint32_t count = 1;
-        uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
-
-        ComponentDiff cdiff;
-        cdiff.idArr = arr;
-        cdiff.count = count;
-        cdiff.idArr[0] = GetComponentId<Component>();
-
-        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, std::move(cdiff));
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
 
         if(destArchetype->count == destArchetype->capacity)
         {
@@ -291,14 +253,122 @@ namespace ECS
         //empty entity
         if(!r->archetype)
         {
-            for(uint32_t i = 0; i < destArchetype->components.count; i++)
+            if(cTi->HasData())
             {
-                TypeInfo& ti = *(destArchetype->columns[i].typeInfo);
-                void* dataAddr = OFFSET(destArchetype->columns[i].data, destArchetype->count * ti.size);
-                ti.hook.ctor(dataAddr);
+                void* dataAddr = OFFSET(destArchetype->columns[0].data, destArchetype->count * cTi->size);
+                cTi->hook.ctor(dataAddr);
             }
         }
         //at least 1 component
+        else
+        {
+            //SWAP BACK IN SRC ARCHETYPE
+            SwapBack(*r);
+
+            for(uint32_t i = 0; i < destArchetype->components.count; i++)
+            {
+                //skip no data tag and pair
+                int32_t destColIdx = destArchetype->componentMap[i];
+
+                if(destColIdx == -1)
+                {
+                    continue;
+                }
+
+                Column& destCol = destArchetype->columns[destColIdx];
+                TypeInfo& ti = *destCol.typeInfo;
+
+                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+                int32_t srcIndex = r->archetype->components.Search(destArchetype->components.idArr[i]);
+
+                if(srcIndex == -1)
+                {
+                    ti.hook.ctor(dest);
+                }
+                else
+                {
+                    int32_t srcColIdx = r->archetype->componentMap[srcIndex];
+
+                    if(srcColIdx == -1)
+                    {
+                        assert(0 && "Mismatch type");
+                    }
+
+                    Column& srcCol = r->archetype->columns[srcColIdx];
+                    void* src = OFFSET(srcCol.data, ti.size * r->row);
+
+                    if(ti.hook.moveCtor)
+                    {
+                        ti.hook.moveCtor(dest, src);
+                    }
+                    else if(ti.hook.copyCtor)
+                    {
+                        ti.hook.copyCtor(dest, src);
+                    }
+                    else
+                    {
+                        std::memcpy(dest, src, ti.size);
+                    }
+
+                    if(ti.hook.dtor)
+                    {
+                        ti.hook.dtor(src);
+                    }
+                }
+            }
+
+        }
+
+        if(r->archetype)
+        {
+            --r->archetype->count;
+        }
+
+        destArchetype->entities[destArchetype->count] = id;
+        r->archetype = destArchetype;
+        r->row = destArchetype->count;
+        ++destArchetype->count;
+
+        cTi->hook.onAdd();
+    }
+
+    template<typename Component>
+    void World::AddPair(EntityId id)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(id);
+
+        assert(r);
+
+        TypeInfo* pti = m_typeInfos.GetValue(ComponentTypeId<Component>::id);
+
+        assert(!r->archetype->components.Has(ComponentTypeId<Component>::id));
+
+        if(pti->IsExclusive())
+        {
+            assert(!r->archetype->components.HasPair(ComponentTypeId<Component>::id));
+        }
+
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
+
+
+        if(destArchetype->count == destArchetype->capacity)
+        {
+            GrowArchetype(*destArchetype);
+        }
+
+        if(!r->archetype)
+        {
+            if(pti->HasData())
+            {
+                for(uint32_t i = 0; i < destArchetype->components.count; i++)
+                {
+                    TypeInfo& ti = *(destArchetype->columns[i].typeInfo);
+                    void* dataAddr = OFFSET(destArchetype->columns[i].data, destArchetype->count * ti.size);
+                    ti.hook.ctor(dataAddr);
+                }
+            }
+        }
         else
         {
             //SWAP BACK IN SRC ARCHETYPE
@@ -315,7 +385,10 @@ namespace ECS
 
                 if(srcIndex == -1)
                 {
-                    ti.hook.ctor(dest);
+                    if(ti.HasData())
+                    {
+                        ti.hook.ctor(dest);
+                    }
                 }
                 else
                 {
@@ -354,8 +427,99 @@ namespace ECS
         r->row = destArchetype->count;
         ++destArchetype->count;
 
-        TypeInfo& ti = *m_typeInfos[GetComponentId<Component>()];
-        ti.hook.onAdd();
+        ti.
+    }
+
+    template<typename Component>
+    void World::AddTag(EntityId id)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(id);
+
+        assert(r);
+
+        TypeInfo* pti = m_typeInfos.GetValue(ComponentTypeId<Component>::id);
+
+        assert(!r->archetype->components.Has(ComponentTypeId<Component>::id));
+
+        if(pti->IsExclusive())
+        {
+            assert(!r->archetype->components.HasPair(ComponentTypeId<Component>::id));
+        }
+
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
+
+        if(destArchetype->count == destArchetype->capacity)
+        {
+            GrowArchetype(*destArchetype);
+        }
+
+        if(r->archetype)
+        {
+            SwapBack(*r);
+
+
+            for(uint32_t i = 0; i < destArchetype->components.count; i++)
+            {
+                //skip no data tag and pair
+                int32_t destColIdx = destArchetype->componentMap[i];
+
+                if(destColIdx == -1)
+                {
+                    continue;
+                }
+
+                Column& destCol = destArchetype->columns[destColIdx];
+                TypeInfo& ti = *destCol.typeInfo;
+
+                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+                int32_t srcIndex = r->archetype->components.Search(destArchetype->components.idArr[i]);
+
+                if(srcIndex == -1)
+                {
+                    ti.hook.ctor(dest);
+                }
+                else
+                {
+                    int32_t srcColIdx = r->archetype->componentMap[srcIndex];
+
+                    if(srcColIdx == -1)
+                    {
+                        assert(0 && "Mismatch type");
+                    }
+
+                    Column& srcCol = r->archetype->columns[srcColIdx];
+                    void* src = OFFSET(srcCol.data, ti.size * r->row);
+
+                    if(ti.hook.moveCtor)
+                    {
+                        ti.hook.moveCtor(dest, src);
+                    }
+                    else if(ti.hook.copyCtor)
+                    {
+                        ti.hook.copyCtor(dest, src);
+                    }
+                    else
+                    {
+                        std::memcpy(dest, src, ti.size);
+                    }
+
+                    if(ti.hook.dtor)
+                    {
+                        ti.hook.dtor(src);
+                    }
+                }
+            }
+
+            --r->archetype->count;
+        }
+
+        destArchetype->entities[destArchetype->count] = id;
+        r->archetype = destArchetype;
+        r->row = destArchetype->count;
+        ++destArchetype->count;
+
+        pti->hook.onAdd();
     }
 
     template<typename Component>
@@ -431,19 +595,19 @@ namespace ECS
         ti.hook.onRemove();
     }
 
-    template<typename Component>
-    void World::Set(EntityId id, Component&& c)
+    template<typename T>
+    void World::Set(EntityId id, T&& c)
     {
         EntityRecord* r = m_entityIndex.GetPageData(id);
         assert(r);
         assert(r->archetype);
         assert(r->dense);
 
-        int32_t idx = r->archetype->components.Search(ComponentTypeId<Component>::id);
+        int32_t idx = r->archetype->components.Search(ComponentTypeId<T>::id);
 
         assert(idx != -1);
 
-        Component& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, Component, sizeof(Component), r->row);
+        T& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, T, sizeof(T), r->row);
 
         component = std::move(c);
     }
@@ -580,14 +744,25 @@ namespace ECS
 
                 for(uint32_t idx = 0; idx < count; idx++)
                 {
-                    uint32_t colIdx = ids[idx];
+                    uint32_t componentId = ids[idx];
 
-                    assert(colIdx != -1);
+                    int32_t cIdx = archetype->components.Search(componentId);
 
-                    Column& col = archetype->columns[colIdx];
-                    TypeInfo& ti = *col.typeInfo;
-                    void* comData = OFFSET(col.data, ti.size * row);
-                    componentsData[idx] = comData;
+                    assert(cIdx != -1);
+
+                    int32_t colIdx = archetype->componentMap[cIdx];
+
+                    if(colIdx == -1)
+                    {
+                        componentsData[idx] = nullptr;
+                    }
+                    else
+                    {
+                        Column& col = archetype->columns[colIdx];
+                        TypeInfo& ti = *col.typeInfo;
+                        void* comData = OFFSET(col.data, ti.size * row);
+                        componentsData[idx] = comData;
+                    }
                 }
 
                 //EXECUTE
