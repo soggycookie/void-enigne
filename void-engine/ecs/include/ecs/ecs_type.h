@@ -13,8 +13,6 @@ struct ComponentName;
             static constexpr const char* name = #T; \
         }; 
 
-
-
 namespace ECS
 {
 
@@ -51,7 +49,7 @@ namespace ECS
         constexpr uint32_t mask = 0xFFFFFFFFULL;
 
         LoEntityId f = first & mask;
-        LoEntityId s = (sec >> 32) & mask;
+        LoEntityId s = sec & mask;
 
         EntityId pair = (EntityId) f | ((EntityId)s << 32);
 
@@ -312,6 +310,7 @@ namespace ECS
 #define TYPE_HAS_DATA       1 << 3
 #define EXCLUSIVE_PAIR      1 << 4
 #define BITSET_DATA         1 << 5
+#define FULL_PAIR           1 << 6
 
     struct TypeInfo
     {
@@ -321,19 +320,24 @@ namespace ECS
         TypeHook hook;
         uint32_t flags;
 
-        bool HasData()
+        bool HasData() const
         {
             return (flags & TYPE_HAS_DATA) == TYPE_HAS_DATA;
         }
 
-        bool IsExclusive()
+        bool IsExclusive() const
         {
             return (flags & (EXCLUSIVE_PAIR | PAIR_TYPE)) ==  (EXCLUSIVE_PAIR | PAIR_TYPE);
         }
 
-        bool IsDataBitset()
+        bool IsDataBitset() const
         {
             return (flags & (TYPE_HAS_DATA | BITSET_DATA)) == (TYPE_HAS_DATA | BITSET_DATA);
+        }
+
+        bool IsFullPair() const
+        {
+            return (flags & (PAIR_TYPE | FULL_PAIR)) == (PAIR_TYPE | FULL_PAIR);
         }
     };
 
@@ -424,6 +428,10 @@ namespace ECS
         ComponentId id;
         Store<Archetype*> archetypeStore;
         TypeInfo* typeInfo;
+#ifdef ECS_DEBUG
+        char name[16];
+#endif
+
     };
 
     struct EntityRecord

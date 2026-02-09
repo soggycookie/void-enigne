@@ -100,7 +100,7 @@ set_target_properties(${VOID_ECS_LIB} PROPERTIES
 target_precompile_headers(${VOID_ECS_LIB} PRIVATE ${VOID_ECS_PRECOMPILED_HEADER})
 
 target_compile_definitions(${VOID_ECS_LIB}
-    PRIVATE
+    PUBLIC
         $<$<CONFIG:Debug>:ECS_DEBUG>
 	PUBLIC
 		"ECS_STATIC"

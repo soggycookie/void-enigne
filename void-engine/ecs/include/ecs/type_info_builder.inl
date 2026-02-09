@@ -87,6 +87,23 @@ namespace ECS
         cr.id = ti.id;
         cr.typeInfo = &ti;
 
+#ifdef ECS_DEBUG
+
+        if(ti.IsFullPair())
+        {
+            //char pName[30];
+            //int32_t r = std::snprintf(cr.name, 30, ComponentName<T>::name);
+            int32_t r = std::snprintf(cr.name, 16, ComponentName<T>::name);
+
+            std::snprintf(&cr.name[r], 16 - r, " %u", HI_ENTITY_ID(ti.id));
+        }
+        else
+        {
+            std::snprintf(cr.name, 16, ComponentName<T>::name);
+            ComponentTypeId<T>::Id(ti.id);
+        }
+#endif
+
         cr.archetypeStore.Init(world->m_wAllocator);
 
         assert(cr.archetypeStore.store);
@@ -94,7 +111,6 @@ namespace ECS
         world->m_componentIndex.Insert(ti.id, std::move(cr));
         world->m_typeInfos.Insert(ti.id, &ti);
 
-        ComponentTypeId<T>::Id(ti.id);
     }
 
 }

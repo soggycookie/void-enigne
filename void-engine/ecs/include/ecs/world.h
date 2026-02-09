@@ -6,6 +6,7 @@
 #include "ds/hash_map.h"
 #include "entity.h"
 #include "system_meta.h"
+#include "internal_component.h"
 
 namespace ECS
 {
@@ -61,7 +62,7 @@ namespace ECS
         void RemoveComponent(EntityId id);
 
         template<typename Component>
-        void AddPair(EntityId id);
+        void AddPair(EntityId id, EntityId second);
 
         template<typename Component>
         void AddTag(EntityId id);

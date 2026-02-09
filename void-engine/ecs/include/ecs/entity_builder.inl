@@ -16,6 +16,13 @@ namespace ECS
     }
 
     template<typename Component>
+    EntityBuilder& EntityBuilder::AddPair(EntityId second)
+    {
+        m_world->AddPair<Component>(m_id, second);
+        return *this;
+    }
+
+    template<typename Component>
     EntityBuilder& EntityBuilder::RemoveComponent()
     {
         m_world->RemoveComponent<Component>(m_id);

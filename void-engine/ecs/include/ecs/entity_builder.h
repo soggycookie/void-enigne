@@ -34,6 +34,9 @@ namespace ECS
         EntityBuilder& AddTag();
 
         template<typename Component>
+        EntityBuilder& AddPair(EntityId second);
+
+        template<typename Component>
         EntityBuilder& RemoveComponent();
 
         template<typename FirstComponent, typename... Components>

@@ -1,5 +1,4 @@
 #include "world.h"
-#include "internal_component.h"
 
 namespace ECS
 {
@@ -485,6 +484,19 @@ namespace ECS
         {
             ComponentRecord& cr = m_componentIndex[componentSet.idArr[idx]];
 
+            if(cr.typeInfo->IsFullPair())
+            {
+                ComponentRecord& pCr = m_componentIndex[LO_ENTITY_ID(componentSet.idArr[idx])];
+
+                if(pCr.archetypeStore.count == pCr.archetypeStore.capacity)
+                {
+                    pCr.archetypeStore.Grow(m_wAllocator);
+                }
+
+                pCr.archetypeStore.store[pCr.archetypeStore.count] = rArchetype;
+                ++pCr.archetypeStore.count;
+            }
+
             if(cr.archetypeStore.count == cr.archetypeStore.capacity)
             {
                 cr.archetypeStore.Grow(m_wAllocator);
@@ -493,7 +505,6 @@ namespace ECS
             cr.archetypeStore.store[cr.archetypeStore.count] = rArchetype;
             ++cr.archetypeStore.count;
         }
-
 
         m_mappedArchetype.Insert(componentSet, rArchetype);
 
