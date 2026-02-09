@@ -249,18 +249,21 @@ namespace ECS
 
         bool HasPair(ComponentId id)
         {
-            auto compare = [](ComponentId a, ComponentId b) {
-                return LO_ENTITY_ID(a) < LO_ENTITY_ID(b);
-            };      
-
-            ComponentId* v = std::lower_bound(idArr, (idArr + count), LO_ENTITY_ID(id), compare);
-    
-            if(v == (idArr + count) || *v != id)
+            for(uint32_t idx = count ; idx > 0;)
             {
-                return false;
+                --idx;
+                if(LO_ENTITY_ID(id) == LO_ENTITY_ID(idArr[idx]))
+                {
+                    return true;
+                }
+                
+                if(HI_ENTITY_ID(idArr[idx]) == 0)
+                {
+                    return false;
+                }
             }
 
-            return true;
+            return false;
         }
 
         void Alloc(WorldAllocator& wAllocator, uint32_t capacity)
