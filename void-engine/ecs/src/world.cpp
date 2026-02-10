@@ -33,7 +33,7 @@ namespace ECS
 
     Entity World::CreateEntity(EntityId parent)
     {
-        uint64_t id = m_entityIndex.GetReservedFreeId();
+        uint64_t id = m_entityIndex.GetReusedId();
 
         bool newId = false;
         if(id == 0)
@@ -60,12 +60,19 @@ namespace ECS
         r.dense = m_entityIndex.PushBack(e.GetFullId(), r, newId);
         GetEntityRecord(e.GetFullId())->dense = r.dense;
 
+        EntityDesc desc;
+        desc.name = nullptr;
+        desc.id = e.GetFullId();
+        desc.parent = parent;
+
+        ResolveEntityDesc(*GetEntityRecord(e.GetFullId()), desc);
+
         return e;
     }
 
     Entity World::CreateEntity(const char* name, EntityId parent)
     {
-        uint64_t id = m_entityIndex.GetReservedFreeId();
+        uint64_t id = m_entityIndex.GetReusedId();
         bool newId = false;
         if(id == 0)
         {
@@ -91,6 +98,13 @@ namespace ECS
         r.dense = m_entityIndex.PushBack(e.GetFullId(), r, newId);
         GetEntityRecord(e.GetFullId())->dense = r.dense;
 
+        EntityDesc desc;
+        desc.name = name;
+        desc.id = e.GetFullId();
+        desc.parent = parent;
+
+        ResolveEntityDesc(*GetEntityRecord(e.GetFullId()), desc);
+
         return e;
     }
 
@@ -113,7 +127,7 @@ namespace ECS
         }
         else
         {
-            uint64_t freeId = m_entityIndex.GetReservedFreeId();
+            uint64_t freeId = m_entityIndex.GetReusedId();
             bool newId = false;
             if(freeId == 0)
             {
@@ -163,7 +177,7 @@ namespace ECS
         }
         else
         {
-            uint64_t freeId = m_entityIndex.GetReservedFreeId();
+            uint64_t freeId = m_entityIndex.GetReusedId();
             bool newId = false;
             if(freeId == 0)
             {
@@ -193,9 +207,14 @@ namespace ECS
         }
     }
 
-    EntityId World::GetFreeId()
+    EntityId World::GetNextFreeId()
     {
         return ++m_nextFreeId;
+    }
+
+    EntityId World::GetReusedId()
+    {
+        return m_entityIndex.GetReusedId();
     }
 
     Entity World::CreateEntity(EntityDesc& desc)
@@ -220,7 +239,7 @@ namespace ECS
         }
         else
         {
-            uint64_t freeId = m_entityIndex.GetReservedFreeId();
+            uint64_t freeId = m_entityIndex.GetReusedId();
             bool newId = false;
             if(freeId == 0)
             {
@@ -257,19 +276,173 @@ namespace ECS
     {
         ComponentSet cs;
         Archetype* destArchetype = r.archetype;
-        if(desc.parent != 0){
+        if(desc.parent != 0)
+        {
+            if(!m_componentIndex.ContainsKey(MakePair(ComponentTypeId<ChildOf>::id, desc.parent)))
+            {
+                TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
+                *ti = *(m_typeInfos[ComponentTypeId<ChildOf>::id]);
+                ti->flags |= FULL_PAIR;
+                ti->id = MakePair(ComponentTypeId<ChildOf>::id, desc.parent);
+            
+                TypeInfoBuilder<ChildOf> builder{*ti, this};
+                builder.Register();
+            }
 
-           destArchetype = GetOrCreateArchetype_Add(destArchetype, MakePair(desc.id, desc.parent));
+            destArchetype = GetOrCreateArchetype_Add(destArchetype, MakePair(ComponentTypeId<ChildOf>::id, desc.parent));
         }
         if(desc.name)
         {
             destArchetype = GetOrCreateArchetype_Add(destArchetype, ComponentTypeId<EcsName>::id);
         }
 
-        for(uint32_t idx = 0; idx < desc.add.count; idx++)
+        //for(uint32_t idx = 0; idx < desc.add.count; idx++)
+        //{
+        //    destArchetype = GetOrCreateArchetype_Add(destArchetype, desc.add.idArr[idx]);
+        //}
+
+        if(destArchetype)
         {
-            destArchetype = GetOrCreateArchetype_Add(destArchetype, desc.add.idArr[idx]);
+            if(destArchetype->count == destArchetype->capacity)
+            {
+                GrowArchetype(*destArchetype);
+            }
+
+            for(uint32_t i = 0; i < destArchetype->components.count; i++)
+            {
+                //skip no data tag and pair
+                int32_t destColIdx = destArchetype->componentMap[i];
+
+                if(destColIdx == -1)
+                {
+                    continue;
+                }
+
+                Column& destCol = destArchetype->columns[destColIdx];
+                TypeInfo& ti = *destCol.typeInfo;
+
+                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+                if(destArchetype->components.idArr[i] == EcsNameId)
+                {
+                    EcsName name;
+                    std::snprintf(name.name, 16, desc.name);
+                    ti.hook.moveCtor(dest, &name);
+                }
+            }
+
+            destArchetype->entities[destArchetype->count] = desc.id;
+            r.archetype = destArchetype;
+            r.row = destArchetype->count;
+            ++destArchetype->count;
         }
+
+
+        //empty entity
+        //if(!r.archetype)
+        //{
+        //    for(uint32_t i = 0; i < destArchetype->components.count; i++)
+        //    {
+        //        //skip no data tag and pair
+        //        int32_t destColIdx = destArchetype->componentMap[i];
+
+        //        if(destColIdx == -1)
+        //        {
+        //            continue;
+        //        }
+
+        //        Column& destCol = destArchetype->columns[destColIdx];
+        //        TypeInfo& ti = *destCol.typeInfo;
+
+        //        void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+        //        if(destArchetype->components.idArr[i] == EcsNameId)
+        //        {
+        //            EcsName name;
+        //            std::snprintf(name.name, 16, desc.name);
+        //            ti.hook.copyCtor(dest, &name);
+        //        }
+        //        else
+        //        {
+        //            if(ti.hook.moveCtor)
+        //            {
+        //                ti.hook.moveCtor(dest, src);
+        //            }
+        //            else if(ti.hook.copyCtor)
+        //            {
+        //                ti.hook.copyCtor(dest, src);
+        //            }
+        //            else
+        //            {
+        //                std::memcpy(dest, src, ti.size);
+        //            }
+        //        }
+        //    }
+        //}
+        ////at least 1 component
+        //else
+        //{
+        //    //SWAP BACK IN SRC ARCHETYPE
+        //    SwapBack(r);
+
+        //    for(uint32_t i = 0; i < destArchetype->components.count; i++)
+        //    {
+        //        //skip no data tag and pair
+        //        int32_t destColIdx = destArchetype->componentMap[i];
+
+        //        if(destColIdx == -1)
+        //        {
+        //            continue;
+        //        }
+
+        //        Column& destCol = destArchetype->columns[destColIdx];
+        //        TypeInfo& ti = *destCol.typeInfo;
+
+        //        void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+        //        int32_t srcIndex = r.archetype->components.Search(destArchetype->components.idArr[i]);
+
+        //        if(srcIndex == -1)
+        //        {
+        //            ti.hook.ctor(dest);
+        //        }
+        //        else
+        //        {
+        //            int32_t srcColIdx = r.archetype->componentMap[srcIndex];
+
+        //            if(srcColIdx == -1)
+        //            {
+        //                assert(0 && "Mismatch type");
+        //            }
+
+        //            Column& srcCol = r.archetype->columns[srcColIdx];
+        //            void* src = OFFSET(srcCol.data, ti.size * r.row);
+
+        //            if(ti.hook.moveCtor)
+        //            {
+        //                ti.hook.moveCtor(dest, src);
+        //            }
+        //            else if(ti.hook.copyCtor)
+        //            {
+        //                ti.hook.copyCtor(dest, src);
+        //            }
+        //            else
+        //            {
+        //                std::memcpy(dest, src, ti.size);
+        //            }
+
+        //            if(ti.hook.dtor)
+        //            {
+        //                ti.hook.dtor(src);
+        //            }
+        //        }
+        //    }
+
+        //    --r.archetype->count;
+        //}
+
+
+
 
         //Archetype* destArchetype = GetOrCreateArchetype_Add(r.archetype, );
     }
@@ -452,7 +625,7 @@ namespace ECS
             PTR_CAST(m_wAllocator.Alloc(sizeof(Column) * componentSet.count), Column);
         archetype.entities =
             PTR_CAST(m_wAllocator.Alloc(sizeof(EntityId) * DefaultArchetypeCapacity), EntityId);
-        archetype.componentMap = 
+        archetype.componentMap =
             PTR_CAST(m_wAllocator.Calloc(sizeof(int32_t) * componentSet.count * 2), int32_t);
 
         uint32_t dataColCounter = 0;
@@ -464,7 +637,7 @@ namespace ECS
                 archetype.columns[dataColCounter].typeInfo = ti;
                 archetype.columns[dataColCounter].data =
                     m_wAllocator.Alloc(ti->size * DefaultArchetypeCapacity);
-                
+
                 archetype.componentMap[idx] = dataColCounter;
                 archetype.componentMap[componentSet.count + dataColCounter] = idx;
                 ++dataColCounter;
@@ -484,6 +657,7 @@ namespace ECS
         {
             ComponentRecord& cr = m_componentIndex[componentSet.idArr[idx]];
 
+            //union pair
             if(cr.typeInfo->IsFullPair())
             {
                 ComponentRecord& pCr = m_componentIndex[LO_ENTITY_ID(componentSet.idArr[idx])];
@@ -666,6 +840,11 @@ namespace ECS
                         for(uint32_t idx = 0; idx < sc.components.count; idx++)
                         {
                             int32_t cIdx = archetype->components.Search(sc.components.idArr[idx]);
+
+                            if(cIdx == -1)
+                            {
+                                cIdx = archetype->components.SearchPair(sc.components.idArr[idx]);
+                            }
 
                             assert(cIdx != -1);
 

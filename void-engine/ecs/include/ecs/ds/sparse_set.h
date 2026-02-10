@@ -21,7 +21,7 @@ namespace ECS
     {
     public:
         SparseSet()
-            : m_dense(), m_sparse(), m_count(0), m_reservedFreeId(false),
+            : m_dense(), m_sparse(), m_count(0), m_reuseId(false),
             m_allocator(nullptr), m_pageAllocator(nullptr)
         {
             static_assert(
@@ -91,7 +91,7 @@ namespace ECS
         void PrintAliveDense();
         void PrintDeadDense();
 
-        uint64_t GetReservedFreeId();
+        uint64_t GetReusedId();
 
     private:
         MemoryArray m_dense;
@@ -99,7 +99,7 @@ namespace ECS
         WorldAllocator* m_allocator;
         BlockAllocator* m_pageAllocator;
         uint32_t m_count; //Alive id
-        bool m_reservedFreeId;
+        bool m_reuseId;
     };
 
 }

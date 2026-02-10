@@ -323,7 +323,6 @@ namespace ECS
         
         if(!m_componentIndex.ContainsKey(pairId))
         {
-            ComponentRecord cr;
             TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
             *ti = *pTi;
             ti->flags |= FULL_PAIR;
@@ -342,7 +341,6 @@ namespace ECS
         {
             if(r->archetype->components.HasPair(ComponentTypeId<Component>::id))
             {
-                assert(0 && "Exclusive");
                 return;
             }
         }
@@ -430,66 +428,140 @@ namespace ECS
         pTi->hook.onAdd();
     }
 
-template<typename Component>
-void World::AddTag(EntityId id)
-{
-    EntityRecord* r = m_entityIndex.GetPageData(id);
-
-    assert(r);
-
-    TypeInfo* pti = m_typeInfos.GetValue(ComponentTypeId<Component>::id);
-
-    assert(!r->archetype->components.Has(ComponentTypeId<Component>::id));
-
-    if(pti->IsExclusive())
+    template<typename Component>
+    void World::AddTag(EntityId id)
     {
-        assert(!r->archetype->components.HasPair(ComponentTypeId<Component>::id));
-    }
+        EntityRecord* r = m_entityIndex.GetPageData(id);
 
-    Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
+        assert(r);
 
-    if(destArchetype->count == destArchetype->capacity)
-    {
-        GrowArchetype(*destArchetype);
-    }
+        TypeInfo* pti = m_typeInfos.GetValue(ComponentTypeId<Component>::id);
 
-    if(r->archetype)
-    {
-        SwapBack(*r);
+        assert(!r->archetype->components.Has(ComponentTypeId<Component>::id));
 
-
-        for(uint32_t i = 0; i < destArchetype->components.count; i++)
+        if(pti->IsExclusive())
         {
-            //skip no data tag and pair
-            int32_t destColIdx = destArchetype->componentMap[i];
+            assert(!r->archetype->components.HasPair(ComponentTypeId<Component>::id));
+        }
 
-            if(destColIdx == -1)
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
+
+        if(destArchetype->count == destArchetype->capacity)
+        {
+            GrowArchetype(*destArchetype);
+        }
+
+        if(r->archetype)
+        {
+            SwapBack(*r);
+
+
+            for(uint32_t i = 0; i < destArchetype->components.count; i++)
             {
-                continue;
-            }
+                //skip no data tag and pair
+                int32_t destColIdx = destArchetype->componentMap[i];
 
-            Column& destCol = destArchetype->columns[destColIdx];
-            TypeInfo& ti = *destCol.typeInfo;
-
-            void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
-
-            int32_t srcIndex = r->archetype->components.Search(destArchetype->components.idArr[i]);
-
-            if(srcIndex == -1)
-            {
-                ti.hook.ctor(dest);
-            }
-            else
-            {
-                int32_t srcColIdx = r->archetype->componentMap[srcIndex];
-
-                if(srcColIdx == -1)
+                if(destColIdx == -1)
                 {
-                    assert(0 && "Mismatch type");
+                    continue;
                 }
 
-                Column& srcCol = r->archetype->columns[srcColIdx];
-                void* src = OFFSET(srcCol.data, ti.size * r->row);
+                Column& destCol = destArchetype->columns[destColIdx];
+                TypeInfo& ti = *destCol.typeInfo;
+
+                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+                int32_t srcIndex = r->archetype->components.Search(destArchetype->components.idArr[i]);
+
+                if(srcIndex == -1)
+                {
+                    ti.hook.ctor(dest);
+                }
+                else
+                {
+                    int32_t srcColIdx = r->archetype->componentMap[srcIndex];
+
+                    if(srcColIdx == -1)
+                    {
+                        assert(0 && "Mismatch type");
+                    }
+
+                    Column& srcCol = r->archetype->columns[srcColIdx];
+                    void* src = OFFSET(srcCol.data, ti.size * r->row);
+
+                    if(ti.hook.moveCtor)
+                    {
+                        ti.hook.moveCtor(dest, src);
+                    }
+                    else if(ti.hook.copyCtor)
+                    {
+                        ti.hook.copyCtor(dest, src);
+                    }
+                    else
+                    {
+                        std::memcpy(dest, src, ti.size);
+                    }
+
+                    if(ti.hook.dtor)
+                    {
+                        ti.hook.dtor(src);
+                    }
+                }
+            }
+
+            --r->archetype->count;
+        }
+
+        destArchetype->entities[destArchetype->count] = id;
+        r->archetype = destArchetype;
+        r->row = destArchetype->count;
+        ++destArchetype->count;
+
+        pti->hook.onAdd();
+    }
+
+    template<typename Component>
+    void World::RemoveComponent(EntityId id)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(id);
+
+        assert(r);
+        assert(r->archetype);
+        Archetype* srcArchetype = r->archetype;
+        int32_t s = srcArchetype->components.Search(GetComponentId<Component>());
+
+        assert(s != -1);
+
+        uint32_t count = 1;
+        uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
+
+        ComponentDiff cdiff;
+        cdiff.idArr = arr;
+        cdiff.count = count;
+        cdiff.idArr[0] = GetComponentId<Component>();
+
+        Archetype* destArchetype = GetOrCreateArchetype_Remove(srcArchetype, std::move(cdiff));
+
+        if(destArchetype->count == destArchetype->capacity)
+        {
+            GrowArchetype(*destArchetype);
+        }
+
+        //SWAP BACK IN SRC ARCHETYPE
+        SwapBack(*r);
+
+        for(uint32_t i = 0; i < srcArchetype->components.count; i++)
+        {
+            Column& srcCol = srcArchetype->columns[i];
+            TypeInfo& ti = *srcCol.typeInfo;
+            void* src = OFFSET(srcCol.data, ti.size * r->row);
+
+            int32_t destIndex = destArchetype->components.Search(srcArchetype->components.idArr[i]);
+
+            if(destIndex != -1)
+            {
+                Column& destCol = destArchetype->columns[destIndex];
+                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
 
                 if(ti.hook.moveCtor)
                 {
@@ -503,275 +575,200 @@ void World::AddTag(EntityId id)
                 {
                     std::memcpy(dest, src, ti.size);
                 }
+            }
 
-                if(ti.hook.dtor)
-                {
-                    ti.hook.dtor(src);
-                }
+            if(ti.hook.dtor)
+            {
+                ti.hook.dtor(src);
             }
         }
 
+        destArchetype->entities[destArchetype->count] = id;
         --r->archetype->count;
+        r->archetype = destArchetype;
+        r->row = destArchetype->count;
+        ++destArchetype->count;
+
+        TypeInfo& ti = *m_typeInfos[GetComponentId<Component>()];
+        ti.hook.onRemove();
     }
 
-    destArchetype->entities[destArchetype->count] = id;
-    r->archetype = destArchetype;
-    r->row = destArchetype->count;
-    ++destArchetype->count;
-
-    pti->hook.onAdd();
-}
-
-template<typename Component>
-void World::RemoveComponent(EntityId id)
-{
-    EntityRecord* r = m_entityIndex.GetPageData(id);
-
-    assert(r);
-    assert(r->archetype);
-    Archetype* srcArchetype = r->archetype;
-    int32_t s = srcArchetype->components.Search(GetComponentId<Component>());
-
-    assert(s != -1);
-
-    uint32_t count = 1;
-    uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
-
-    ComponentDiff cdiff;
-    cdiff.idArr = arr;
-    cdiff.count = count;
-    cdiff.idArr[0] = GetComponentId<Component>();
-
-    Archetype* destArchetype = GetOrCreateArchetype_Remove(srcArchetype, std::move(cdiff));
-
-    if(destArchetype->count == destArchetype->capacity)
+    template<typename T>
+    void World::Set(EntityId id, T&& c)
     {
-        GrowArchetype(*destArchetype);
+        EntityRecord* r = m_entityIndex.GetPageData(id);
+        assert(r);
+        assert(r->archetype);
+        assert(r->dense);
+
+        int32_t idx = r->archetype->components.Search(ComponentTypeId<T>::id);
+
+        assert(idx != -1);
+
+        T& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, T, sizeof(T), r->row);
+
+        component = std::move(c);
     }
 
-    //SWAP BACK IN SRC ARCHETYPE
-    SwapBack(*r);
-
-    for(uint32_t i = 0; i < srcArchetype->components.count; i++)
+    template<typename Component>
+    Component& World::Get(EntityId id)
     {
-        Column& srcCol = srcArchetype->columns[i];
-        TypeInfo& ti = *srcCol.typeInfo;
-        void* src = OFFSET(srcCol.data, ti.size * r->row);
+        EntityRecord* r = m_entityIndex.GetPageData(id);
+        assert(r);
+        assert(r->archetype);
+        assert(r->dense);
 
-        int32_t destIndex = destArchetype->components.Search(srcArchetype->components.idArr[i]);
+        int32_t idx = r->archetype->components.Search(ComponentTypeId<Component>::id);
 
-        if(destIndex != -1)
-        {
-            Column& destCol = destArchetype->columns[destIndex];
-            void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+        assert(idx != -1);
 
-            if(ti.hook.moveCtor)
-            {
-                ti.hook.moveCtor(dest, src);
-            }
-            else if(ti.hook.copyCtor)
-            {
-                ti.hook.copyCtor(dest, src);
-            }
-            else
-            {
-                std::memcpy(dest, src, ti.size);
-            }
-        }
+        Component& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, Component, sizeof(Component), r->row);
 
-        if(ti.hook.dtor)
-        {
-            ti.hook.dtor(src);
-        }
+        return component;
     }
 
-    destArchetype->entities[destArchetype->count] = id;
-    --r->archetype->count;
-    r->archetype = destArchetype;
-    r->row = destArchetype->count;
-    ++destArchetype->count;
-
-    TypeInfo& ti = *m_typeInfos[GetComponentId<Component>()];
-    ti.hook.onRemove();
-}
-
-template<typename T>
-void World::Set(EntityId id, T&& c)
-{
-    EntityRecord* r = m_entityIndex.GetPageData(id);
-    assert(r);
-    assert(r->archetype);
-    assert(r->dense);
-
-    int32_t idx = r->archetype->components.Search(ComponentTypeId<T>::id);
-
-    assert(idx != -1);
-
-    T& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, T, sizeof(T), r->row);
-
-    component = std::move(c);
-}
-
-template<typename Component>
-Component& World::Get(EntityId id)
-{
-    EntityRecord* r = m_entityIndex.GetPageData(id);
-    assert(r);
-    assert(r->archetype);
-    assert(r->dense);
-
-    int32_t idx = r->archetype->components.Search(ComponentTypeId<Component>::id);
-
-    assert(idx != -1);
-
-    Component& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, Component, sizeof(Component), r->row);
-
-    return component;
-}
-
-template<typename... Components, typename... FuncArgs>
-void World::System(void (*func)(FuncArgs...))
-{
-    ComponentId ids[] = {ComponentTypeId<Components>::id...};
-    uint32_t count = sizeof...(Components);
-    ComponentSet componentSet;
-    componentSet.Alloc(m_wAllocator, count);
-    componentSet.count = count;
-
-    std::memcpy(componentSet.idArr, ids, count * sizeof(ComponentId));
-
-    ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(m_wAllocator);
-
-    ArchetypeLinkedList* head = node;
-
-    SystemCallback sc = CreateSystemCallback<Components..., FuncArgs...>(func);
-
-    for(uint32_t idx = 0; idx < 1; idx++)
+    template<typename... Components, typename... FuncArgs>
+    void World::System(void (*func)(FuncArgs...))
     {
-        ComponentRecord& cr = m_componentIndex.GetValue(ids[idx]);
+        ComponentId ids[] = {ComponentTypeId<Components>::id...};
+        uint32_t count = sizeof...(Components);
+        ComponentSet componentSet;
+        componentSet.Alloc(m_wAllocator, count);
+        componentSet.count = count;
+        std::memcpy(componentSet.idArr, ids, count * sizeof(ComponentId));
 
-        for(uint32_t aIdx = 0; aIdx < cr.archetypeStore.count; aIdx++)
+        ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(m_wAllocator);
+
+        ArchetypeLinkedList* head = node;
+
+        SystemCallback sc = CreateSystemCallback<Components..., FuncArgs...>(func);
+
+        for(uint32_t idx = 0; idx < 1; idx++)
         {
-            Archetype* archetype = cr.archetypeStore.store[aIdx];
-            bool skip = false;
-            assert(archetype);
+            ComponentRecord& cr = m_componentIndex.GetValue(ids[idx]);
 
-            for(uint32_t remainIdx = 1; remainIdx < count; remainIdx++)
+            for(uint32_t aIdx = 0; aIdx < cr.archetypeStore.count; aIdx++)
             {
-                //Archetype does not contain the same set of components
-                if(archetype->components.Search(ids[remainIdx]) == -1)
+                Archetype* archetype = cr.archetypeStore.store[aIdx];
+                bool skip = false;
+                assert(archetype);
+
+                for(uint32_t remainIdx = 1; remainIdx < count; remainIdx++)
                 {
-                    skip = true;
-                    break;
+                    //Archetype does not contain the same set of components
+                    if(!archetype->components.Has(ids[remainIdx]) &&
+                       !archetype->components.HasPair(ids[remainIdx]))
+                    {
+                        skip = true;
+                    }
+                }
+
+                if(!skip)
+                {
+                    node->archetype = archetype;
+                    ArchetypeLinkedList* newNode = ArchetypeLinkedList::Alloc(m_wAllocator);
+                    node->next = newNode;
+                    node = newNode;
                 }
             }
-
-            if(!skip)
-            {
-                node->archetype = archetype;
-                ArchetypeLinkedList* newNode = ArchetypeLinkedList::Alloc(m_wAllocator);
-                node->next = newNode;
-                node = newNode;
-            }
         }
-    }
 
-    sc.components = std::move(componentSet);
-    sc.archetypeList = head;
+        sc.components = std::move(componentSet);
+        sc.archetypeList = head;
 
-    if(m_systemStore.capacity == m_systemStore.count)
-    {
-        m_systemStore.Grow(m_wAllocator);
-    }
-
-    m_systemStore.Add(sc);
-}
-
-template<typename... Components, typename... FuncArgs>
-void World::Each(void (*func)(FuncArgs...))
-{
-    ComponentId ids[] = {ComponentTypeId<decay_t<Components>>::id...};
-    uint32_t count = sizeof...(Components);
-
-    ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(m_wAllocator);
-
-    ArchetypeLinkedList* head = node;
-
-    SystemCallback sc = CreateSystemCallback<Components..., FuncArgs...>(func);
-
-    for(uint32_t idx = 0; idx < 1; idx++)
-    {
-        ComponentRecord& cr = m_componentIndex.GetValue(ids[idx]);
-
-        for(uint32_t aIdx = 0; aIdx < cr.archetypeStore.count; aIdx++)
+        if(m_systemStore.capacity == m_systemStore.count)
         {
-            Archetype* archetype = cr.archetypeStore.store[aIdx];
-            bool skip = false;
-            assert(archetype);
-
-            for(uint32_t remainIdx = 1; remainIdx < count; remainIdx++)
-            {
-                //Archetype does not contain the same set of components
-                if(archetype->components.Search(ids[remainIdx]) == -1)
-                {
-                    skip = true;
-                    break;
-                }
-            }
-
-            if(!skip)
-            {
-                node->archetype = archetype;
-                ArchetypeLinkedList* newNode = ArchetypeLinkedList::Alloc(m_wAllocator);
-                node->next = newNode;
-                node = newNode;
-            }
+            m_systemStore.Grow(m_wAllocator);
         }
+
+        m_systemStore.Add(sc);
     }
 
-    void* componentsData[sizeof...(FuncArgs)];
-
-    while(head->archetype)
+    template<typename... Components, typename... FuncArgs>
+    void World::Each(void (*func)(FuncArgs...))
     {
-        Archetype* archetype = head->archetype;
+        ComponentId ids[] = {ComponentTypeId<decay_t<Components>>::id...};
+        uint32_t count = sizeof...(Components);
 
-        for(uint32_t row = 0; row < archetype->count; row++)
+        ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(m_wAllocator);
+
+        ArchetypeLinkedList* head = node;
+
+        SystemCallback sc = CreateSystemCallback<Components..., FuncArgs...>(func);
+
+        for(uint32_t idx = 0; idx < 1; idx++)
         {
-            QueryIterator it;
-            it.archetype = archetype;
-            it.world = this;
-            it.row = row;
+            ComponentRecord& cr = m_componentIndex.GetValue(ids[idx]);
 
-            for(uint32_t idx = 0; idx < count; idx++)
+            for(uint32_t aIdx = 0; aIdx < cr.archetypeStore.count; aIdx++)
             {
-                uint32_t componentId = ids[idx];
+                Archetype* archetype = cr.archetypeStore.store[aIdx];
+                bool skip = false;
+                assert(archetype);
 
-                int32_t cIdx = archetype->components.Search(componentId);
-
-                assert(cIdx != -1);
-
-                int32_t colIdx = archetype->componentMap[cIdx];
-
-                if(colIdx == -1)
+                for(uint32_t remainIdx = 1; remainIdx < count; remainIdx++)
                 {
-                    componentsData[idx] = nullptr;
+                    //Archetype does not contain the same set of components
+                    if(archetype->components.Search(ids[remainIdx]) == -1)
+                    {
+                        skip = true;
+                        break;
+                    }
                 }
-                else
+
+                if(!skip)
                 {
-                    Column& col = archetype->columns[colIdx];
-                    TypeInfo& ti = *col.typeInfo;
-                    void* comData = OFFSET(col.data, ti.size * row);
-                    componentsData[idx] = comData;
+                    node->archetype = archetype;
+                    ArchetypeLinkedList* newNode = ArchetypeLinkedList::Alloc(m_wAllocator);
+                    node->next = newNode;
+                    node = newNode;
                 }
             }
-
-            //EXECUTE
-            sc.Execute(&it, componentsData);
         }
-        ArchetypeLinkedList* freeNode = head;
-        head = head->next;
 
-        ArchetypeLinkedList::Free(m_wAllocator, freeNode);
+        void* componentsData[sizeof...(FuncArgs)];
+
+        while(head->archetype)
+        {
+            Archetype* archetype = head->archetype;
+
+            for(uint32_t row = 0; row < archetype->count; row++)
+            {
+                QueryIterator it;
+                it.archetype = archetype;
+                it.world = this;
+                it.row = row;
+
+                for(uint32_t idx = 0; idx < count; idx++)
+                {
+                    uint32_t componentId = ids[idx];
+
+                    int32_t cIdx = archetype->components.Search(componentId);
+
+                    assert(cIdx != -1);
+
+                    int32_t colIdx = archetype->componentMap[cIdx];
+
+                    if(colIdx == -1)
+                    {
+                        componentsData[idx] = nullptr;
+                    }
+                    else
+                    {
+                        Column& col = archetype->columns[colIdx];
+                        TypeInfo& ti = *col.typeInfo;
+                        void* comData = OFFSET(col.data, ti.size * row);
+                        componentsData[idx] = comData;
+                    }
+                }
+
+                //EXECUTE
+                sc.Execute(&it, componentsData);
+            }
+            ArchetypeLinkedList* freeNode = head;
+            head = head->next;
+
+            ArchetypeLinkedList::Free(m_wAllocator, freeNode);
+        }
     }
-}
 }

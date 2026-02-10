@@ -1,16 +1,16 @@
 #pragma once
-#include "entity_builder.h"
+#include "entity_command.h"
 
 namespace ECS
 {
-    class Entity : public EntityBuilder
+    class Entity : public EntityCommand
     {
     public:
 
         static constexpr size_t NameCapacity = 16;
 
         explicit Entity(EntityId id, World* world)
-            : EntityBuilder(id, world)
+            : EntityCommand(id, world)
         {
         }
 
@@ -21,7 +21,5 @@ namespace ECS
 
         Entity(const Entity& other) = default;
         Entity& operator=(const Entity& other) = default;
-
-
     };
 }

@@ -235,6 +235,25 @@ namespace ECS
             return static_cast<int32_t>(v - idArr);
         }
 
+        int32_t SearchPair(ComponentId id)
+        {
+            for(uint32_t idx = count ; idx > 0;)
+            {
+                --idx;
+                if(LO_ENTITY_ID(id) == LO_ENTITY_ID(idArr[idx]))
+                {
+                    return idx;
+                }
+                
+                if(HI_ENTITY_ID(idArr[idx]) == 0)
+                {
+                    return -1;
+                }
+            }
+
+            return -1;
+        }
+
         bool Has(ComponentId id)
         {
             ComponentId* v = std::lower_bound(idArr, (idArr + count), id);
@@ -448,8 +467,8 @@ namespace ECS
     {
         EntityId id;
         EntityId parent;
-        ComponentSet add;
-        Store<void*> componentData;
+        //ComponentSet add;
+        //Store<void*> componentData;
         const char* name;
     };
 }

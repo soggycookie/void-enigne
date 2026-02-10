@@ -39,7 +39,8 @@ namespace ECS
 
         Entity CreateEntity(EntityDesc& desc);
 
-        EntityId GetFreeId();
+        EntityId GetNextFreeId();
+        EntityId GetReusedId();
 
         EntityRecord* GetEntityRecord(EntityId id);
         Entity GetEntity(EntityId id);
@@ -117,4 +118,4 @@ namespace ECS
 
 #include "type_info_builder.inl"
 #include "world.inl"
-#include "entity_builder.inl"
+#include "entity_command.inl"

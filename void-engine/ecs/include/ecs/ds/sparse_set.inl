@@ -7,7 +7,7 @@ namespace ECS
     {
         m_allocator = allocator;
         m_pageAllocator = pageAllocator;
-        m_reservedFreeId = reservedFreeId;
+        m_reuseId = reservedFreeId;
 
         defaultDense = defaultDense == 0 ? 1 : defaultDense;
 
@@ -306,7 +306,7 @@ namespace ECS
         }
 
         if(m_count > 1){
-            if(m_reservedFreeId)
+            if(m_reuseId)
             {
                 if(denseIndex != m_count)
                 {
@@ -324,7 +324,7 @@ namespace ECS
         }
         else
         {
-            if(m_reservedFreeId)
+            if(m_reuseId)
             {
             }
             else
@@ -425,9 +425,9 @@ namespace ECS
     }
 
     template<typename T>
-    uint64_t SparseSet<T>::GetReservedFreeId()
+    uint64_t SparseSet<T>::GetReusedId()
     {
-        if(!m_reservedFreeId)
+        if(!m_reuseId)
         {
             return 0;
         }

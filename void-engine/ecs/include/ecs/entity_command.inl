@@ -2,49 +2,49 @@
 namespace ECS
 {
     template<typename Component>
-    EntityBuilder& EntityBuilder::AddComponent()
+    EntityCommand& EntityCommand::AddComponent()
     {
         m_world->AddComponent<Component>(m_id);
         return *this;
     }
 
     template<typename Component>
-    EntityBuilder& EntityBuilder::AddTag()
+    EntityCommand& EntityCommand::AddTag()
     {
         m_world->AddTag<Component>(m_id);
         return *this;
     }
 
     template<typename Component>
-    EntityBuilder& EntityBuilder::AddPair(EntityId second)
+    EntityCommand& EntityCommand::AddPair(EntityId second)
     {
         m_world->AddPair<Component>(m_id, second);
         return *this;
     }
 
     template<typename Component>
-    EntityBuilder& EntityBuilder::RemoveComponent()
+    EntityCommand& EntityCommand::RemoveComponent()
     {
         m_world->RemoveComponent<Component>(m_id);
         return *this;
     }
 
     template<typename FirstComponent, typename... Components>
-    EntityBuilder& EntityBuilder::AddComponents(const FirstComponent& f, const Components&... c)
+    EntityCommand& EntityCommand::AddComponents(const FirstComponent& f, const Components&... c)
     {
 
         return *this;
     }
 
     template<typename FirstComponent, typename... Components>
-    EntityBuilder& EntityBuilder::RemoveComponents()
+    EntityCommand& EntityCommand::RemoveComponents()
     {
 
         return *this;
     }
 
     template<typename Component>
-    EntityBuilder& EntityBuilder::Set(Component&& c)
+    EntityCommand& EntityCommand::Set(Component&& c)
     {
         m_world->Set<Component>(m_id, std::forward<Component>(c));
 
@@ -52,7 +52,7 @@ namespace ECS
     }
 
     template<typename Component>
-    Component& EntityBuilder::Get()
+    Component& EntityCommand::Get()
     {
         return m_world->Get<Component>(m_id);
     }
