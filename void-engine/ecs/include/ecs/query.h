@@ -41,7 +41,7 @@ namespace ECS
         template<typename Component>
         Component& Get()
         {
-            uint32_t colIdx = archetype->components.Search(ComponentTypeId<ComponentId>::id);
+            uint32_t colIdx = archetype->components.Search(ComponentTypeId<EntityId>::id);
 
             assert(colIdx != -1);
 

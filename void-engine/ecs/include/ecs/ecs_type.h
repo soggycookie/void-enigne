@@ -42,7 +42,6 @@ namespace ECS
     using LoEntityId = uint32_t;
     using HiEntityId = uint32_t;
     using GenCount = uint16_t;
-    using ComponentId = EntityId;
 
     inline EntityId MakePair(EntityId first, EntityId sec)
     {
@@ -56,17 +55,17 @@ namespace ECS
         return pair;
     }
 
-    //inline ComponentId GetNextComponentId()
+    //inline EntityId GetNextComponentId()
     //{
-    //    static ComponentId id = 0;
+    //    static EntityId id = 0;
     //    return id++;
     //}
 
 
     //template<typename T>
-    //ComponentId GetComponentId()
+    //EntityId GetComponentId()
     //{
-    //    static ComponentId id = GetNextComponentId();
+    //    static EntityId id = GetNextComponentId();
     //    return id;
     //}
 
@@ -74,16 +73,16 @@ namespace ECS
     template<typename T>
     struct ComponentTypeId
     {
-        static ComponentId id;
+        static EntityId id;
 
-        static void Id(ComponentId cid)
+        static void Id(EntityId cid)
         {
             id = cid;
         }
     };
 
     template<typename T>
-    ComponentId ComponentTypeId<T>::id = 0;
+    EntityId ComponentTypeId<T>::id = 0;
 
     template<typename T>
     struct Store
@@ -129,7 +128,7 @@ namespace ECS
 
     struct ComponentSet
     {
-        ComponentId* idArr;
+        EntityId* idArr;
         uint32_t count;
 
         ComponentSet() = default;
@@ -223,9 +222,9 @@ namespace ECS
             std::sort(idArr, (idArr + count));
         }
 
-        int32_t Search(ComponentId id)
+        int32_t Search(EntityId id)
         {
-            ComponentId* v = std::lower_bound(idArr, (idArr + count), id);
+            EntityId* v = std::lower_bound(idArr, (idArr + count), id);
             
             if(v == (idArr + count) || *v != id)
             {
@@ -235,7 +234,7 @@ namespace ECS
             return static_cast<int32_t>(v - idArr);
         }
 
-        int32_t SearchPair(ComponentId id)
+        int32_t SearchPair(EntityId id)
         {
             for(uint32_t idx = count ; idx > 0;)
             {
@@ -254,9 +253,9 @@ namespace ECS
             return -1;
         }
 
-        bool Has(ComponentId id)
+        bool Has(EntityId id)
         {
-            ComponentId* v = std::lower_bound(idArr, (idArr + count), id);
+            EntityId* v = std::lower_bound(idArr, (idArr + count), id);
             
             if(v == (idArr + count) || *v != id)
             {
@@ -266,7 +265,7 @@ namespace ECS
             return true;
         }
 
-        bool HasPair(ComponentId id)
+        bool HasPair(EntityId id)
         {
             for(uint32_t idx = count ; idx > 0;)
             {
@@ -287,12 +286,12 @@ namespace ECS
 
         void Alloc(WorldAllocator& wAllocator, uint32_t capacity)
         {
-            idArr = PTR_CAST(wAllocator.Alloc(capacity * sizeof(ComponentId)), ComponentId);
+            idArr = PTR_CAST(wAllocator.Alloc(capacity * sizeof(EntityId)), EntityId);
         }
 
         void Free(WorldAllocator& wAllocator)
         {
-            wAllocator.Free(sizeof(ComponentId) * count, idArr);
+            wAllocator.Free(sizeof(EntityId) * count, idArr);
         }
     };
 
@@ -336,7 +335,7 @@ namespace ECS
 
     struct TypeInfo
     {
-        ComponentId id;
+        EntityId id;
         uint32_t alignment;
         uint32_t size;
         TypeHook hook;
@@ -384,8 +383,8 @@ namespace ECS
         EntityId* entities;
         ComponentSet components;
         int32_t* componentMap;
-        HashMap<ComponentId, Archetype*> addEdges;
-        HashMap<ComponentId, Archetype*> removeEdges;
+        HashMap<EntityId, Archetype*> addEdges;
+        HashMap<EntityId, Archetype*> removeEdges;
         uint32_t columnCount;
 
         Archetype()
@@ -447,7 +446,7 @@ namespace ECS
 
     struct ComponentRecord
     {
-        ComponentId id;
+        EntityId id;
         Store<Archetype*> archetypeStore;
         TypeInfo* typeInfo;
 #ifdef ECS_DEBUG
@@ -463,13 +462,6 @@ namespace ECS
         uint32_t dense;
     };
 
-    struct EntityDesc
-    {
-        EntityId id;
-        EntityId parent;
-        //ComponentSet add;
-        //Store<void*> componentData;
-        const char* name;
-    };
+
 }
 

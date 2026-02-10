@@ -64,17 +64,23 @@ namespace ECS
         return *this;
     }
 
+
     template<typename T>
-    void TypeInfoBuilder<T>::Register()
+    void TypeInfoBuilder<T>::Register(const char* name)
     {
+        if constexpr (!std::is_void_v<T>)
+        {
+            name = ComponentName<T>::name;
+        }
+
         if(ti.id == 0)
         {
-            Entity e = world->CreateEntity(ComponentName<T>::name, 0);
+            Entity e = world->CreateEntity(name, 0);
             ti.id = e.GetFullId();
         }
         else
         {
-            world->CreateEntity(ti.id, ComponentName<T>::name, 0);
+            world->CreateEntity(ti.id, name, 0);
         }
 
         if(world->m_componentStore.capacity == world->m_componentStore.count)
@@ -93,13 +99,13 @@ namespace ECS
         {
             //char pName[30];
             //int32_t r = std::snprintf(cr.name, 30, ComponentName<T>::name);
-            int32_t r = std::snprintf(cr.name, 16, ComponentName<T>::name);
+            int32_t r = std::snprintf(cr.name, 16, name);
 
             std::snprintf(&cr.name[r], 16 - r, " %u", HI_ENTITY_ID(ti.id));
         }
         else
         {
-            std::snprintf(cr.name, 16, ComponentName<T>::name);
+            std::snprintf(cr.name, 16, name);
             ComponentTypeId<T>::Id(ti.id);
         }
 #endif
@@ -110,7 +116,7 @@ namespace ECS
 
         world->m_componentIndex.Insert(ti.id, std::move(cr));
         world->m_typeInfos.Insert(ti.id, &ti);
-
     }
+
 
 }

@@ -13,8 +13,8 @@ namespace ECS
 
     void World::RegisterInternalComponents()
     {
-        Component<EcsName>().Id(EcsNameId).Register();
-        Component<EcsSystem>().Id(EcsSystemId).Register();
+        Component<EcsName>().Id(EcsNameId).Register(ComponentName<EcsName>::name);
+        Component<EcsSystem>().Id(EcsSystemId).Register(ComponentName<EcsName>::name);
 
         Tag<EcsPhase>().Id(EcsPhaseId).Register();
         Tag<EcsArchetype>().Id(EcsArchetypeId).Register();
@@ -284,7 +284,7 @@ namespace ECS
                 *ti = *(m_typeInfos[ComponentTypeId<ChildOf>::id]);
                 ti->flags |= FULL_PAIR;
                 ti->id = MakePair(ComponentTypeId<ChildOf>::id, desc.parent);
-            
+
                 TypeInfoBuilder<ChildOf> builder{*ti, this};
                 builder.Register();
             }
@@ -447,9 +447,9 @@ namespace ECS
         //Archetype* destArchetype = GetOrCreateArchetype_Add(r.archetype, );
     }
 
-    EntityRecord* World::GetEntityRecord(EntityId id)
+    EntityRecord* World::GetEntityRecord(EntityId eId)
     {
-        EntityRecord* e = m_entityIndex.GetPageData(id);
+        EntityRecord* e = m_entityIndex.GetPageData(eId);
 
         if(!e)
         {
@@ -481,17 +481,17 @@ namespace ECS
         m_allocators.archetypes.Init(SparsePageCount * sizeof(Archetype));
     }
 
-    Entity World::GetEntity(EntityId id)
+    Entity World::GetEntity(EntityId eId)
     {
-        EntityRecord* r = m_entityIndex.GetPageData(id);
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
         uint32_t dense = r->dense;
         uint64_t versionedId = m_entityIndex.GetDenseArr()[dense];
-        if(!r || versionedId != id)
+        if(!r || versionedId != eId)
         {
             return Entity(0, this);
         }
 
-        return Entity(id, this);
+        return Entity(eId, this);
     }
 
     void World::GrowArchetype(Archetype& archetype)
@@ -695,7 +695,7 @@ namespace ECS
         return nullptr;
     }
 
-    Archetype* World::GetOrCreateArchetype_Add(Archetype* src, ComponentId id)
+    Archetype* World::GetOrCreateArchetype_Add(Archetype* src, EntityId cId)
     {
         uint32_t srcCount = 0;
         if(src)
@@ -708,9 +708,9 @@ namespace ECS
         //find or create edge
         if(src)
         {
-            if(src->addEdges.ContainsKey(id))
+            if(src->addEdges.ContainsKey(cId))
             {
-                dest = src->addEdges[id];
+                dest = src->addEdges[cId];
             }
             else
             {
@@ -719,8 +719,8 @@ namespace ECS
 
                 ComponentSet cs;
                 cs.Alloc(m_wAllocator, count);
-                std::memcpy(cs.idArr, src->components.idArr, srcCount * sizeof(ComponentId));
-                cs.idArr[count - 1] = id;
+                std::memcpy(cs.idArr, src->components.idArr, srcCount * sizeof(EntityId));
+                cs.idArr[count - 1] = cId;
                 cs.count = count;
                 cs.Sort();
 
@@ -732,17 +732,17 @@ namespace ECS
                 }
                 else
                 {
-                    m_wAllocator.Free(sizeof(ComponentId) * cs.count, cs.idArr);
+                    m_wAllocator.Free(sizeof(EntityId) * cs.count, cs.idArr);
                 }
 
-                src->addEdges.Insert(id, dest);
+                src->addEdges.Insert(cId, dest);
             }
         }
         else
         {
             ComponentSet cs;
             cs.Alloc(m_wAllocator, 1);
-            cs.idArr[0] = id;
+            cs.idArr[0] = cId;
             cs.count = 1;
 
             dest = GetArchetype(cs);
@@ -753,7 +753,7 @@ namespace ECS
             }
             else
             {
-                m_wAllocator.Free(sizeof(ComponentId), cs.idArr);
+                m_wAllocator.Free(sizeof(EntityId), cs.idArr);
             }
         }
 
@@ -762,7 +762,7 @@ namespace ECS
         return dest;
     }
 
-    Archetype* World::GetOrCreateArchetype_Remove(Archetype* src, ComponentId id)
+    Archetype* World::GetOrCreateArchetype_Remove(Archetype* src, EntityId cId)
     {
         assert(src);
 
@@ -771,43 +771,48 @@ namespace ECS
 
         Archetype* dest = nullptr;
 
-        if(src->removeEdges.ContainsKey(id))
+        if(src->removeEdges.ContainsKey(cId))
         {
-            dest = src->removeEdges[id];
+            dest = src->removeEdges[cId];
         }
         else
         {
             //CREATE EDEGE
             uint32_t count = srcCount - 1;
+            
             assert(count >= 0);
-
-            ComponentSet cs;
-            cs.Alloc(m_wAllocator, count);
-            cs.count = count;
-
-            //TODO: Review this later
-            uint32_t rIdx = src->components.Search(id);
-            assert(rIdx != -1);
-
-            std::memcpy(cs.idArr, src->components.idArr, rIdx * sizeof(ComponentId));
-            std::memcpy(cs.idArr + rIdx, src->components.idArr + rIdx + 1, (count - rIdx) * sizeof(ComponentId));
-            cs.Sort();
-
-            dest = GetArchetype(cs);
-
-            if(!dest)
+            if(count == 0)
             {
-                dest = CreateArchetype(std::move(cs));
+                return nullptr;
             }
             else
             {
-                m_wAllocator.Free(sizeof(ComponentId) * cs.count, cs.idArr);
+                ComponentSet cs;
+                cs.Alloc(m_wAllocator, count);
+                cs.count = count;
+
+                //TODO: Review this later
+                int32_t rIdx = src->components.Search(cId);
+                assert(rIdx != -1);
+
+                std::memcpy(cs.idArr, src->components.idArr, rIdx * sizeof(EntityId));
+                std::memcpy(cs.idArr + rIdx, src->components.idArr + rIdx + 1, (count - rIdx - 1) * sizeof(EntityId));
+                cs.Sort();
+
+                dest = GetArchetype(cs);
+
+                if(!dest)
+                {
+                    dest = CreateArchetype(std::move(cs));
+                }
+                else
+                {
+                    m_wAllocator.Free(sizeof(EntityId) * cs.count, cs.idArr);
+                }
+
+                src->removeEdges.Insert(cId, dest);
             }
-
-            src->removeEdges.Insert(id, dest);
         }
-
-        assert(dest);
 
         return dest;
     }
@@ -951,6 +956,358 @@ namespace ECS
 
         m_wAllocator.m_sparse.Destroy();
         m_wAllocator.m_chunks.Destroy();
+    }
+
+    void World::AddComponent(EntityId eId, EntityId cId)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+        TypeInfo* cTi = m_typeInfos[cId];
+
+        assert(r);
+
+        if(r->archetype)
+        {
+            int32_t s = r->archetype->components.Search(cId);
+
+            assert(s == -1);
+        }
+
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, cId);
+
+        MoveArchetype_Add(eId, *r, destArchetype);
+
+        cTi->hook.onAdd();
+    }
+
+    void World::AddPair(EntityId eId, EntityId first, EntityId second)
+    {
+        EntityId pairId = MakePair(first, second);
+        TypeInfo* pTi = m_typeInfos.GetValue(first);
+
+        if(!m_componentIndex.ContainsKey(pairId))
+        {
+            TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
+            *ti = *pTi;
+            ti->flags |= FULL_PAIR;
+            ti->id = pairId;
+
+            TypeInfoBuilder<> builder{*ti, this};
+            char name[30];
+
+            ///std::snprintf(name, 30, )
+            builder.Register("Child of");
+        }
+
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+
+        assert(r);
+        assert(!r->archetype->components.Has(pairId));
+
+        if(pTi->IsExclusive())
+        {
+            if(r->archetype->components.HasPair(first))
+            {
+                return;
+            }
+        }
+
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, pairId);
+
+        MoveArchetype_Add(eId, *r, destArchetype);
+
+        pTi->hook.onAdd();
+    }
+
+    void World::AddTag(EntityId eId, EntityId cId)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+
+        assert(r);
+
+        TypeInfo* pti = m_typeInfos.GetValue(cId);
+
+        assert(!r->archetype->components.Has(cId));
+
+        if(pti->IsExclusive())
+        {
+            assert(!r->archetype->components.HasPair(cId));
+        }
+
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, cId);
+
+        MoveArchetype_Add(eId, *r, destArchetype);
+
+        pti->hook.onAdd();
+    }
+
+    void World::RemoveComponent(EntityId eId, EntityId cId)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+
+        assert(r);
+        assert(r->archetype);
+        Archetype* srcArchetype = r->archetype;
+        int32_t s = srcArchetype->components.Search(cId);
+
+        assert(s != -1);
+
+        Archetype* destArchetype = GetOrCreateArchetype_Remove(srcArchetype, cId);
+
+        MoveArchetype_Remove(eId, *r, destArchetype);
+
+        TypeInfo& ti = *m_typeInfos[cId];
+        ti.hook.onRemove();
+    }
+
+    void World::Set(EntityId eId, EntityId cId, void* data)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+        assert(r);
+        assert(r->archetype);
+        assert(r->dense);
+
+        int32_t idx = r->archetype->components.Search(cId);
+        int32_t colIdx = r->archetype->componentMap[idx];
+        assert(colIdx != -1);
+
+        Column& col = r->archetype->columns[colIdx];
+        TypeInfo& ti = *col.typeInfo;
+
+        void* component = OFFSET_ELEMENT(col.data, ti.size ,r->row);
+
+        if (ti.hook.moveCtor)
+        {
+            ti.hook.moveCtor(component, data);
+        }
+        else if (ti.hook.copyCtor)
+        {
+            ti.hook.copyCtor(component, data);
+        }
+        else
+        {
+            std::memcpy(component, data, ti.size);
+        }
+    }
+
+    void World::Set(EntityId eId, EntityId cId, const void* data)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+        assert(r);
+        assert(r->archetype);
+        assert(r->dense);
+
+        int32_t idx = r->archetype->components.Search(cId);
+        int32_t colIdx = r->archetype->componentMap[idx];
+        assert(colIdx != -1);
+
+        Column& col = r->archetype->columns[colIdx];
+        TypeInfo& ti = *col.typeInfo;
+
+        void* component = OFFSET_ELEMENT(col.data, ti.size ,r->row);
+
+        if (ti.hook.copyCtor)
+        {
+            ti.hook.copyCtor(component, data);
+        }
+        else
+        {
+            std::memcpy(component, data, ti.size);
+        }
+    }
+
+    void* World::Get(EntityId eId, EntityId cId)
+    {
+        EntityRecord* r = m_entityIndex.GetPageData(eId);
+        assert(r);
+        assert(r->archetype);
+        assert(r->dense);
+
+        int32_t idx = r->archetype->components.Search(cId);
+        int32_t colIdx = r->archetype->componentMap[idx];
+        assert(colIdx != -1);
+
+        Column& col = r->archetype->columns[colIdx];
+        TypeInfo& ti = *col.typeInfo;
+
+        void* component = OFFSET_ELEMENT(col.data, ti.size ,r->row);
+
+        return component;    
+    }
+
+    void World::MoveArchetype_Add(EntityId eId, EntityRecord& r, Archetype* destArchetype)
+    {
+        assert(destArchetype);
+
+        if(destArchetype->count == destArchetype->capacity)
+        {
+            GrowArchetype(*destArchetype);
+        }
+
+        //empty entity
+        if(!r.archetype)
+        {
+            if(destArchetype->columnCount == 1)
+            {
+                TypeInfo& ti = *destArchetype->columns[0].typeInfo;
+                void* dataAddr = OFFSET(destArchetype->columns[0].data, destArchetype->count * ti.size);
+                ti.hook.ctor(dataAddr);
+            }
+        }
+        //at least 1 component
+        else
+        {
+            //SWAP BACK IN SRC ARCHETYPE
+            SwapBack(r);
+
+            for(uint32_t i = 0; i < destArchetype->components.count; i++)
+            {
+                //skip no data tag and pair
+                int32_t destColIdx = destArchetype->componentMap[i];
+
+                if(destColIdx == -1)
+                {
+                    continue;
+                }
+
+                Column& destCol = destArchetype->columns[destColIdx];
+                TypeInfo& ti = *destCol.typeInfo;
+
+                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+                int32_t srcIndex = r.archetype->components.Search(destArchetype->components.idArr[i]);
+
+                if(srcIndex == -1)
+                {
+                    ti.hook.ctor(dest);
+                }
+                else
+                {
+                    int32_t srcColIdx = r.archetype->componentMap[srcIndex];
+
+                    if(srcColIdx == -1)
+                    {
+                        assert(0 && "Mismatch type");
+                    }
+
+                    Column& srcCol = r.archetype->columns[srcColIdx];
+                    void* src = OFFSET(srcCol.data, ti.size * r.row);
+
+                    if(ti.hook.moveCtor)
+                    {
+                        ti.hook.moveCtor(dest, src);
+                    }
+                    else if(ti.hook.copyCtor)
+                    {
+                        ti.hook.copyCtor(dest, src);
+                    }
+                    else
+                    {
+                        std::memcpy(dest, src, ti.size);
+                    }
+
+                    if(ti.hook.dtor)
+                    {
+                        ti.hook.dtor(src);
+                    }
+                }
+            }
+
+            --r.archetype->count;
+        }
+
+        destArchetype->entities[destArchetype->count] = eId;
+        r.archetype = destArchetype;
+        r.row = destArchetype->count;
+        ++destArchetype->count;
+    }
+
+    void World::MoveArchetype_Remove(EntityId eId, EntityRecord& r, Archetype* destArchetype)
+    {
+        Archetype* srcArchetype = r.archetype;
+        SwapBack(r);
+
+        if(!destArchetype)
+        {
+            if(srcArchetype->columnCount == 1 && srcArchetype->components.count == 1)
+            {
+                int32_t srcColIdx = srcArchetype->componentMap[0];
+                Column& srcCol = srcArchetype->columns[srcColIdx];
+                TypeInfo& ti = *srcCol.typeInfo;
+
+                if(ti.HasData() && ti.hook.dtor)
+                {
+                    void* src = OFFSET_ELEMENT(srcCol.data, ti.size, srcArchetype->count - 1);
+                    ti.hook.dtor(src);
+                }
+
+                r.row = 0;
+                --r.archetype->count;
+                r.archetype = destArchetype;
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else
+        {
+            if(destArchetype->count == destArchetype->capacity)
+            {
+                GrowArchetype(*destArchetype);
+            }
+
+            for(uint32_t idx = 0; idx < srcArchetype->components.count; idx++)
+            {
+                int32_t srcColIdx = srcArchetype->componentMap[idx];
+
+                if(srcColIdx == -1)
+                {
+                    continue;
+                }
+
+                Column& srcCol = srcArchetype->columns[srcColIdx];
+                TypeInfo& ti = *srcCol.typeInfo;
+                void* src = OFFSET(srcCol.data, ti.size * r.row);
+
+
+                int32_t destIdx = destArchetype->components.Search(srcArchetype->components.idArr[idx]);
+                if(destIdx != -1)
+                {
+                    int32_t destColIdx = destArchetype->componentMap[destIdx];
+
+                    assert(destColIdx != -1);
+
+                    Column& destCol = destArchetype->columns[destColIdx];
+                    void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
+
+                    if(ti.hook.moveCtor)
+                    {
+                        ti.hook.moveCtor(dest, src);
+                    }
+                    else if(ti.hook.copyCtor)
+                    {
+                        ti.hook.copyCtor(dest, src);
+                    }
+                    else
+                    {
+                        std::memcpy(dest, src, ti.size);
+                    }
+                }
+
+                if(ti.hook.dtor)
+                {
+                    ti.hook.dtor(src);
+                }
+            }
+
+            destArchetype->entities[destArchetype->count] = eId;
+            --r.archetype->count;
+            r.archetype = destArchetype;
+            r.row = destArchetype->count;
+            ++destArchetype->count;
+        }
+
+
     }
 
 }

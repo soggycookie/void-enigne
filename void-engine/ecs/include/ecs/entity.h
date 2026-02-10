@@ -1,16 +1,60 @@
 #pragma once
-#include "entity_command.h"
+#include "id.h"
+#include "entity_cmd.h"
 
 namespace ECS
 {
-    class Entity : public EntityCommand
+    class World;
+
+    /*
+        Entity Builder declaration
+        These ecs operations will apply immediately
+    */
+
+    class EntityMutator : public Id, public EntityCommandBase
     {
+    protected:
+        EntityMutator(EntityId id, World* world)
+            : m_world(world), Id(id)
+        {
+        }
+
+        EntityMutator(LoEntityId lowId, HiEntityId highId, World* world)
+            : m_world(world), Id(lowId, highId)
+        {
+        }
+
+        virtual ~EntityMutator() = default;
+
+        EntityMutator(EntityMutator&& other) = default;
+        EntityMutator(const EntityMutator& other) = default;
+
+        EntityMutator& operator=(EntityMutator&& other) = default;
+        EntityMutator& operator=(const EntityMutator& other) = default;
+
     public:
 
-        static constexpr size_t NameCapacity = 16;
+        void AddComponentImpl(EntityId cId) override;
+        void AddTagImpl(EntityId cId) override;
+        void AddPairImpl(EntityId first, EntityId second) override;
+        void RemoveComponentImpl(EntityId cId) override;
+        void* GetImpl(EntityId cId) override;
+        void SetImpl(EntityId cId, void* data) override;
 
+    protected:
+        World* m_world;
+    };
+
+
+    /*
+        Entity declaration
+    */
+
+    class Entity : public EntityMutator
+    {
+    public:
         explicit Entity(EntityId id, World* world)
-            : EntityCommand(id, world)
+            : EntityMutator(id, world)
         {
         }
 

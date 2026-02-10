@@ -5,7 +5,7 @@ namespace ECS
 {
     class World;
 
-    template<typename T>
+    template<typename T = void>
     struct TypeInfoBuilder
     {
         TypeInfo& ti;
@@ -27,7 +27,8 @@ namespace ECS
 
         TypeInfoBuilder<T>& Id(EntityId id);
 
-        void Register();
+        void Register(const char* name = nullptr);
     };
+
 
 }

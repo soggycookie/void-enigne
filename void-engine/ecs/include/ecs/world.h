@@ -7,6 +7,7 @@
 #include "entity.h"
 #include "system_meta.h"
 #include "internal_component.h"
+#include "entity_cmd.h"
 
 namespace ECS
 {
@@ -42,31 +43,39 @@ namespace ECS
         EntityId GetNextFreeId();
         EntityId GetReusedId();
 
-        EntityRecord* GetEntityRecord(EntityId id);
-        Entity GetEntity(EntityId id);
+        EntityRecord* GetEntityRecord(EntityId eId);
+        Entity GetEntity(EntityId eId);
 
         void ResolveEntityDesc(EntityRecord& r, EntityDesc& desc);
 
-        template<typename Component>
-        TypeInfoBuilder<Component> Component();
+        template<typename T>
+        TypeInfoBuilder<T> Component();
 
-        template<typename Tag>
-        TypeInfoBuilder<Tag> Tag();
+        template<typename T>
+        TypeInfoBuilder<T> Tag();
         
-        template<typename Pair>
-        TypeInfoBuilder<Pair> Pair(bool isExclusive, bool isToggle = false);
+        template<typename T>
+        TypeInfoBuilder<T> Pair(bool isExclusive, bool isToggle = false);
+
+        template<typename T>
+        void AddComponent(EntityId eId);
 
         template<typename Component>
-        void AddComponent(EntityId id);
+        void RemoveComponent(EntityId eId);
 
-        template<typename Component>
-        void RemoveComponent(EntityId id);
+        template<typename T>
+        void AddPair(EntityId eId, EntityId second);
 
-        template<typename Component>
-        void AddPair(EntityId id, EntityId second);
+        template<typename T>
+        void AddTag(EntityId eId);
 
-        template<typename Component>
-        void AddTag(EntityId id);
+        void AddComponent(EntityId eId, EntityId cId);
+
+        void AddPair(EntityId eId, EntityId first, EntityId second);
+
+        void AddTag(EntityId eId, EntityId cId);
+
+        void RemoveComponent(EntityId eId, EntityId cId);
 
         void GrowArchetype(Archetype& archetype);
 
@@ -76,16 +85,24 @@ namespace ECS
 
         Archetype* GetArchetype(const ComponentSet& componentSet);
 
-        Archetype* GetOrCreateArchetype_Add(Archetype* src, ComponentId id);
+        Archetype* GetOrCreateArchetype_Add(Archetype* src, EntityId cId);
 
-        Archetype* GetOrCreateArchetype_Remove(Archetype* src, ComponentId id);
+        Archetype* GetOrCreateArchetype_Remove(Archetype* src, EntityId cId);
 
+        void MoveArchetype_Add(EntityId eId, EntityRecord& r, Archetype* destArchetype);
+        void MoveArchetype_Remove(EntityId eId, EntityRecord& r, Archetype* destArchetype);
 
         template<typename T>
-        void Set(EntityId id, T&& c);
+        void Set(EntityId eId, T&& c);
 
-        template<typename Component>
-        Component& Get(EntityId id);
+        template<typename T>
+        T& Get(EntityId eId);
+
+        void Set(EntityId eId, EntityId cId, void* data);
+
+        void Set(EntityId eId, EntityId cId, const void* data);
+
+        void* Get(EntityId eId, EntityId cId);
 
         //NOTE: System store list of cache archetypes, but the list can be invalidated at runtime,
         //so I need to find a new way to re-validate this or rewrite this in a different way
@@ -106,10 +123,10 @@ namespace ECS
         Allocators m_allocators;
         SparseSet<EntityRecord> m_entityIndex;
         SparseSet<Archetype> m_archetypes;
-        HashMap<ComponentId, ComponentRecord> m_componentIndex;
-        HashMap<ComponentId, TypeInfo*> m_typeInfos;
+        HashMap<EntityId, ComponentRecord> m_componentIndex;
+        HashMap<EntityId, TypeInfo*> m_typeInfos;
         HashMap<ComponentSet, Archetype*> m_mappedArchetype; //value hold a ref to key, does not change the value's key ref
-        Store<ComponentId> m_componentStore;
+        Store<EntityId> m_componentStore;
         Store<SystemCallback> m_systemStore;
         uint32_t m_nextFreeId;
         bool m_isDefered;
@@ -118,4 +135,4 @@ namespace ECS
 
 #include "type_info_builder.inl"
 #include "world.inl"
-#include "entity_command.inl"
+#include "entity_cmd.inl"

@@ -1,55 +1,55 @@
 
 namespace ECS
 {
-    template<typename Component>
-    TypeInfoBuilder<Component> World::Component()
+    template<typename T>
+    TypeInfoBuilder<T> World::Component()
     {
         TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
-        ti->size = sizeof(Component);
-        ti->alignment = alignof(Component);
+        ti->size = sizeof(T);
+        ti->alignment = alignof(T);
         ti->flags = (COMPONENT_TYPE | TYPE_HAS_DATA);
         ti->id = 0;
         //Entity e = CreateEntity(ComponentName<Component>::name, 0);
         //ti->id = e.GetFullId();
 
-        assert(std::is_destructible_v<Component>);
-        assert(std::is_trivially_constructible_v<Component>);
+        assert(std::is_destructible_v<T>);
+        assert(std::is_trivially_constructible_v<T>);
 
-        TypeInfoBuilder<Component> tiBuilder{*ti, this};
+        TypeInfoBuilder<T> tiBuilder{*ti, this};
 
         tiBuilder.Ctor(
             [](void* dest)
             {
-                new (dest) Component();
+                new (dest) T();
             }
         );
 
-        if constexpr(std::is_move_constructible_v<Component>)
+        if constexpr(std::is_move_constructible_v<T>)
         {
             tiBuilder.MoveCtor(
                 [](void* dest, void* src)
                 {
-                    new (dest) Component(std::move(*PTR_CAST(src, Component)));
+                    new (dest) T(std::move(*PTR_CAST(src, T)));
                 }
             );
         }
-        else if constexpr(!std::is_trivially_constructible_v<Component>)
+        else if constexpr(!std::is_trivially_constructible_v<T>)
         {
             tiBuilder.CopyCtor(
                 [](void* dest, const void* src)
                 {
-                    new (dest) Component(*PTR_CAST(src, Component));
+                    new (dest) T(*PTR_CAST(src, T));
                 }
             );
         }
 
-        if constexpr(!std::is_trivially_destructible_v<Component>)
+        if constexpr(!std::is_trivially_destructible_v<T>)
         {
             tiBuilder.Dtor(
                 [](void* src)
                 {
-                    Component* c = PTR_CAST(src, Component);
-                    c->~Component();
+                    T* c = PTR_CAST(src, T);
+                    c->~T();
                 }
             );
         }
@@ -58,74 +58,74 @@ namespace ECS
         tiBuilder.AddEvent(
             []()
             {
-                std::cout << "Add component " << ComponentName<Component>::name << std::endl;
+                std::cout << "Add component " << ComponentName<T>::name << std::endl;
             }
         );
 
         tiBuilder.RemoveEvent(
             []()
             {
-                std::cout << "Remove component" << ComponentName<Component>::name << std::endl;
+                std::cout << "Remove component" << ComponentName<T>::name << std::endl;
             }
         );
 
         tiBuilder.SetEvent(
             [](void* dest)
             {
-                std::cout << "Set component" << ComponentName<Component>::name << std::endl;
+                std::cout << "Set component" << ComponentName<T>::name << std::endl;
             }
         );
 
         return tiBuilder;
     }
 
-    template<typename Tag>
-    TypeInfoBuilder<Tag> World::Tag()
+    template<typename T>
+    TypeInfoBuilder<T> World::Tag()
     {
         TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
-        ti->size = sizeof(Tag);
-        ti->alignment = alignof(Tag);
+        ti->size = sizeof(T);
+        ti->alignment = alignof(T);
         ti->flags = (TAG_TYPE);
         ti->id = 0;
         //Entity e = CreateEntity(ComponentName<Tag>::name, 0);
 
-        assert(std::is_destructible_v<Tag>);
-        assert(std::is_trivially_constructible_v<Tag>);
+        assert(std::is_destructible_v<T>);
+        assert(std::is_trivially_constructible_v<T>);
         assert(ti->size == 1 && "Tag can not have data");
 
-        TypeInfoBuilder<Tag> tiBuilder{*ti, this};
+        TypeInfoBuilder<T> tiBuilder{*ti, this};
 
 
         tiBuilder.AddEvent(
             []()
             {
-                std::cout << "Add tag " << ComponentName<Tag>::name << std::endl;
+                std::cout << "Add tag " << ComponentName<T>::name << std::endl;
             }
         );
 
         tiBuilder.RemoveEvent(
             []()
             {
-                std::cout << "Remove tag" << ComponentName<Tag>::name << std::endl;
+                std::cout << "Remove tag" << ComponentName<T>::name << std::endl;
             }
         );
 
         tiBuilder.SetEvent(
             [](void* dest)
             {
-                std::cout << "Set tag" << ComponentName<Tag>::name << std::endl;
+                std::cout << "Set tag" << ComponentName<T>::name << std::endl;
             }
         );
 
         return tiBuilder;
     }
 
-    template<typename Pair>
-    TypeInfoBuilder<Pair> World::Pair(bool isExclusive, bool isToggle)
+    template<typename T>
+    TypeInfoBuilder<T> World::Pair(bool isExclusive, bool isToggle)
     {
         TypeInfo* ti = new (m_wAllocator.Alloc(sizeof(TypeInfo))) TypeInfo();
-        ti->size = sizeof(Pair);
-        ti->alignment = alignof(Pair);
+        ti->size = sizeof(T);
+        ti->alignment = alignof(T);
 
         ti->flags = PAIR_TYPE;
 
@@ -141,46 +141,46 @@ namespace ECS
 
         ti->id = 0;
 
-        assert(std::is_destructible_v<Pair>);
-        assert(std::is_trivially_constructible_v<Pair>);
+        assert(std::is_destructible_v<T>);
+        assert(std::is_trivially_constructible_v<T>);
 
-        TypeInfoBuilder<Pair> tiBuilder{*ti, this};
+        TypeInfoBuilder<T> tiBuilder{*ti, this};
 
         if(ti->size > 1)
         {
             tiBuilder.Ctor(
                 [](void* dest)
                 {
-                    new (dest) Pair();
+                    new (dest) T();
                 }
             );
 
-            if constexpr(std::is_move_constructible_v<Pair>)
+            if constexpr(std::is_move_constructible_v<T>)
             {
                 tiBuilder.MoveCtor(
                     [](void* dest, void* src)
                     {
-                        new (dest) Pair(std::move(*PTR_CAST(src, Pair)));
+                        new (dest) T(std::move(*PTR_CAST(src, T)));
                     }
                 );
             }
-            else if constexpr(!std::is_trivially_constructible_v<Pair>)
+            else if constexpr(!std::is_trivially_constructible_v<T>)
             {
                 tiBuilder.CopyCtor(
                     [](void* dest, const void* src)
                     {
-                        new (dest) Pair(*PTR_CAST(src, Pair));
+                        new (dest) T(*PTR_CAST(src, T));
                     }
                 );
             }
 
-            if constexpr(!std::is_trivially_destructible_v<Pair>)
+            if constexpr(!std::is_trivially_destructible_v<T>)
             {
                 tiBuilder.Dtor(
                     [](void* src)
                     {
-                        Pair* c = PTR_CAST(src, Pair);
-                        c->~Pair();
+                        T* c = PTR_CAST(src, T);
+                        c->~T();
                     }
                 );
             }
@@ -189,137 +189,38 @@ namespace ECS
         tiBuilder.AddEvent(
             []()
             {
-                std::cout << "Add pair " << ComponentName<Pair>::name << std::endl;
+                std::cout << "Add pair " << ComponentName<T>::name << std::endl;
             }
         );
 
         tiBuilder.RemoveEvent(
             []()
             {
-                std::cout << "Remove pair" << ComponentName<Pair>::name << std::endl;
+                std::cout << "Remove pair" << ComponentName<T>::name << std::endl;
             }
         );
 
         tiBuilder.SetEvent(
             [](void* dest)
             {
-                std::cout << "Set pair" << ComponentName<Pair>::name << std::endl;
+                std::cout << "Set pair" << ComponentName<T>::name << std::endl;
             }
         );
 
         return tiBuilder;
     }
 
-    template<typename Component>
-    void World::AddComponent(EntityId id)
+    template<typename T>
+    void World::AddComponent(EntityId eId)
     {
-        EntityRecord* r = m_entityIndex.GetPageData(id);
-        TypeInfo* cTi = m_typeInfos[ComponentTypeId<Component>::id];
-
-        assert(r);
-
-        if(r->archetype)
-        {
-            int32_t s = r->archetype->components.Search(ComponentTypeId<Component>::id);
-
-            assert(s == -1);
-        }
-
-        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
-
-        if(destArchetype->count == destArchetype->capacity)
-        {
-            GrowArchetype(*destArchetype);
-        }
-
-        //empty entity
-        if(!r->archetype)
-        {
-            if(cTi->HasData())
-            {
-                void* dataAddr = OFFSET(destArchetype->columns[0].data, destArchetype->count * cTi->size);
-                cTi->hook.ctor(dataAddr);
-            }
-        }
-        //at least 1 component
-        else
-        {
-            //SWAP BACK IN SRC ARCHETYPE
-            SwapBack(*r);
-
-            for(uint32_t i = 0; i < destArchetype->components.count; i++)
-            {
-                //skip no data tag and pair
-                int32_t destColIdx = destArchetype->componentMap[i];
-
-                if(destColIdx == -1)
-                {
-                    continue;
-                }
-
-                Column& destCol = destArchetype->columns[destColIdx];
-                TypeInfo& ti = *destCol.typeInfo;
-
-                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
-
-                int32_t srcIndex = r->archetype->components.Search(destArchetype->components.idArr[i]);
-
-                if(srcIndex == -1)
-                {
-                    ti.hook.ctor(dest);
-                }
-                else
-                {
-                    int32_t srcColIdx = r->archetype->componentMap[srcIndex];
-
-                    if(srcColIdx == -1)
-                    {
-                        assert(0 && "Mismatch type");
-                    }
-
-                    Column& srcCol = r->archetype->columns[srcColIdx];
-                    void* src = OFFSET(srcCol.data, ti.size * r->row);
-
-                    if(ti.hook.moveCtor)
-                    {
-                        ti.hook.moveCtor(dest, src);
-                    }
-                    else if(ti.hook.copyCtor)
-                    {
-                        ti.hook.copyCtor(dest, src);
-                    }
-                    else
-                    {
-                        std::memcpy(dest, src, ti.size);
-                    }
-
-                    if(ti.hook.dtor)
-                    {
-                        ti.hook.dtor(src);
-                    }
-                }
-            }
-
-            --r->archetype->count;
-        }
-
-        destArchetype->entities[destArchetype->count] = id;
-        r->archetype = destArchetype;
-        r->row = destArchetype->count;
-        ++destArchetype->count;
-
-        cTi->hook.onAdd();
+        AddComponent(eId, ComponentTypeId<T>::id);
     }
 
-    template<typename Component>
+    template<typename T>
     void World::AddPair(EntityId id, EntityId second)
     {
-        //static_assert(std::is_same_v<Second, EntityId>, "Second must be EntityId/ComponentId");
-        std::cout << ECS::ComponentTypeId<ECS::ChildOf>::id << std::endl;
-        std::cout << MakePair(ECS::ComponentTypeId<ECS::ChildOf>::id, second) << std::endl;
-        
-        EntityId pairId = MakePair(ComponentTypeId<Component>::id, second);
-        TypeInfo* pTi = m_typeInfos.GetValue(ComponentTypeId<Component>::id);
+        EntityId pairId = MakePair(ComponentTypeId<T>::id, second);
+        TypeInfo* pTi = m_typeInfos.GetValue(ComponentTypeId<T>::id);
         
         if(!m_componentIndex.ContainsKey(pairId))
         {
@@ -328,7 +229,7 @@ namespace ECS
             ti->flags |= FULL_PAIR;
             ti->id = pairId;
             
-            TypeInfoBuilder<Component> builder{*ti, this};
+            TypeInfoBuilder<T> builder{*ti, this};
             builder.Register();
         }
 
@@ -339,7 +240,7 @@ namespace ECS
 
         if(pTi->IsExclusive())
         {
-            if(r->archetype->components.HasPair(ComponentTypeId<Component>::id))
+            if(r->archetype->components.HasPair(ComponentTypeId<T>::id))
             {
                 return;
             }
@@ -428,23 +329,23 @@ namespace ECS
         pTi->hook.onAdd();
     }
 
-    template<typename Component>
+    template<typename T>
     void World::AddTag(EntityId id)
     {
         EntityRecord* r = m_entityIndex.GetPageData(id);
 
         assert(r);
 
-        TypeInfo* pti = m_typeInfos.GetValue(ComponentTypeId<Component>::id);
+        TypeInfo* pti = m_typeInfos.GetValue(ComponentTypeId<T>::id);
 
-        assert(!r->archetype->components.Has(ComponentTypeId<Component>::id));
+        assert(!r->archetype->components.Has(ComponentTypeId<T>::id));
 
         if(pti->IsExclusive())
         {
-            assert(!r->archetype->components.HasPair(ComponentTypeId<Component>::id));
+            assert(!r->archetype->components.HasPair(ComponentTypeId<T>::id));
         }
 
-        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<Component>::id);
+        Archetype* destArchetype = GetOrCreateArchetype_Add(r->archetype, ComponentTypeId<T>::id);
 
         if(destArchetype->count == destArchetype->capacity)
         {
@@ -520,109 +421,24 @@ namespace ECS
         pti->hook.onAdd();
     }
 
-    template<typename Component>
-    void World::RemoveComponent(EntityId id)
+    template<typename T>
+    void World::RemoveComponent(EntityId eId)
     {
-        EntityRecord* r = m_entityIndex.GetPageData(id);
-
-        assert(r);
-        assert(r->archetype);
-        Archetype* srcArchetype = r->archetype;
-        int32_t s = srcArchetype->components.Search(GetComponentId<Component>());
-
-        assert(s != -1);
-
-        uint32_t count = 1;
-        uint32_t* arr = PTR_CAST(m_wAllocator.Alloc(sizeof(ComponentId) * count), ComponentId);
-
-        ComponentDiff cdiff;
-        cdiff.idArr = arr;
-        cdiff.count = count;
-        cdiff.idArr[0] = GetComponentId<Component>();
-
-        Archetype* destArchetype = GetOrCreateArchetype_Remove(srcArchetype, std::move(cdiff));
-
-        if(destArchetype->count == destArchetype->capacity)
-        {
-            GrowArchetype(*destArchetype);
-        }
-
-        //SWAP BACK IN SRC ARCHETYPE
-        SwapBack(*r);
-
-        for(uint32_t i = 0; i < srcArchetype->components.count; i++)
-        {
-            Column& srcCol = srcArchetype->columns[i];
-            TypeInfo& ti = *srcCol.typeInfo;
-            void* src = OFFSET(srcCol.data, ti.size * r->row);
-
-            int32_t destIndex = destArchetype->components.Search(srcArchetype->components.idArr[i]);
-
-            if(destIndex != -1)
-            {
-                Column& destCol = destArchetype->columns[destIndex];
-                void* dest = OFFSET(destCol.data, ti.size * destArchetype->count);
-
-                if(ti.hook.moveCtor)
-                {
-                    ti.hook.moveCtor(dest, src);
-                }
-                else if(ti.hook.copyCtor)
-                {
-                    ti.hook.copyCtor(dest, src);
-                }
-                else
-                {
-                    std::memcpy(dest, src, ti.size);
-                }
-            }
-
-            if(ti.hook.dtor)
-            {
-                ti.hook.dtor(src);
-            }
-        }
-
-        destArchetype->entities[destArchetype->count] = id;
-        --r->archetype->count;
-        r->archetype = destArchetype;
-        r->row = destArchetype->count;
-        ++destArchetype->count;
-
-        TypeInfo& ti = *m_typeInfos[GetComponentId<Component>()];
-        ti.hook.onRemove();
+        RemoveComponent(eId, ComponentTypeId<T>::id);
     }
 
     template<typename T>
-    void World::Set(EntityId id, T&& c)
+    void World::Set(EntityId eId, T&& c)
     {
-        EntityRecord* r = m_entityIndex.GetPageData(id);
-        assert(r);
-        assert(r->archetype);
-        assert(r->dense);
-
-        int32_t idx = r->archetype->components.Search(ComponentTypeId<T>::id);
-
-        assert(idx != -1);
-
-        T& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, T, sizeof(T), r->row);
-
-        component = std::move(c);
+        Set(eId, ComponentTypeId<decay_t<T>>::id, &c);
     }
 
-    template<typename Component>
-    Component& World::Get(EntityId id)
+    template<typename T>
+    T& World::Get(EntityId eId)
     {
-        EntityRecord* r = m_entityIndex.GetPageData(id);
-        assert(r);
-        assert(r->archetype);
-        assert(r->dense);
+        void* data = Get(eId, ComponentTypeId<T>::id);
 
-        int32_t idx = r->archetype->components.Search(ComponentTypeId<Component>::id);
-
-        assert(idx != -1);
-
-        Component& component = *CAST_OFFSET_ELEMENT(r->archetype->columns[idx].data, Component, sizeof(Component), r->row);
+        T& component = PTR_CAST(data, CompTonent);
 
         return component;
     }
@@ -630,12 +446,12 @@ namespace ECS
     template<typename... Components, typename... FuncArgs>
     void World::System(void (*func)(FuncArgs...))
     {
-        ComponentId ids[] = {ComponentTypeId<Components>::id...};
+        EntityId ids[] = {ComponentTypeId<Components>::id...};
         uint32_t count = sizeof...(Components);
         ComponentSet componentSet;
         componentSet.Alloc(m_wAllocator, count);
         componentSet.count = count;
-        std::memcpy(componentSet.idArr, ids, count * sizeof(ComponentId));
+        std::memcpy(componentSet.idArr, ids, count * sizeof(EntityId));
 
         ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(m_wAllocator);
 
@@ -687,7 +503,7 @@ namespace ECS
     template<typename... Components, typename... FuncArgs>
     void World::Each(void (*func)(FuncArgs...))
     {
-        ComponentId ids[] = {ComponentTypeId<decay_t<Components>>::id...};
+        EntityId ids[] = {ComponentTypeId<decay_t<Components>>::id...};
         uint32_t count = sizeof...(Components);
 
         ArchetypeLinkedList* node = ArchetypeLinkedList::Alloc(m_wAllocator);
