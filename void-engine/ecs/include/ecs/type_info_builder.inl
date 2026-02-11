@@ -73,14 +73,24 @@ namespace ECS
             name = ComponentName<T>::name;
         }
 
-        if(ti.id == 0)
+        if(!ti.IsFullPair())
         {
-            Entity e = world->CreateEntity(name, 0);
-            ti.id = e.GetFullId();
-        }
-        else
-        {
-            world->CreateEntity(ti.id, name, 0);
+            if(ti.id == 0 || world->m_entityIndex.isValidDense(ti.id))
+            {
+                Entity e = world->CreateEntity(name, 0);
+                ti.id = e.GetFullId();
+            }
+            else
+            {
+                if constexpr(!std::is_same_v<EcsName, T>)
+                {
+                    Entity e = world->CreateEntity(ti.id, name, 0);
+                }
+                else
+                {
+                    Entity e = world->CreateEntity(ti.id, 0);
+                }
+            }
         }
 
         if(world->m_componentStore.capacity == world->m_componentStore.count)
@@ -116,6 +126,14 @@ namespace ECS
 
         world->m_componentIndex.Insert(ti.id, std::move(cr));
         world->m_typeInfos.Insert(ti.id, &ti);
+
+        if constexpr(std::is_same_v<EcsName, T>)
+        {
+            world->AddComponent(ti.id, EcsNameId);
+            char name[16];
+            std::snprintf(name, 16, ComponentName<EcsName>::name);
+            world->Set(ti.id, EcsNameId, &name);
+        }
     }
 
 

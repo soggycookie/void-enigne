@@ -233,7 +233,13 @@ namespace ECS
     template<typename T>
     bool SparseSet<T>::isValidDense(uint64_t id)
     {
+
         uint32_t lowId = CAST(id, uint32_t);
+
+        if(lowId == 0)
+        {
+            return true;
+        }
 
         SparsePage<T>* page = GetSparsePage(lowId);
 

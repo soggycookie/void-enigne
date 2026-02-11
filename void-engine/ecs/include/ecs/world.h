@@ -31,17 +31,17 @@ namespace ECS
 
         void RegisterInternalComponents();
 
+        Entity CreateEntity();
         Entity CreateEntity(EntityId parent);
-
         Entity CreateEntity(const char* name, EntityId parent);
-
-        Entity CreateEntity(LoEntityId id, EntityId parent);
-        Entity CreateEntity(LoEntityId id, const char* name, EntityId parent);
+        Entity CreateEntity(EntityId id, EntityId parent);
+        Entity CreateEntity(EntityId id, const char* name, EntityId parent);
 
         Entity CreateEntity(EntityDesc& desc);
 
         EntityId GetNextFreeId();
         EntityId GetReusedId();
+        std::pair<bool, EntityId> GetId();
 
         EntityRecord* GetEntityRecord(EntityId eId);
         Entity GetEntity(EntityId eId);
@@ -77,6 +77,18 @@ namespace ECS
 
         void RemoveComponent(EntityId eId, EntityId cId);
 
+        template<typename T>
+        void Set(EntityId eId, T&& c);
+
+        template<typename T>
+        T& Get(EntityId eId);
+
+        void Set(EntityId eId, EntityId cId, void* data);
+
+        void Set(EntityId eId, EntityId cId, const void* data);
+
+        void* Get(EntityId eId, EntityId cId);
+
         void GrowArchetype(Archetype& archetype);
 
         void SwapBack(EntityRecord& r);
@@ -91,18 +103,6 @@ namespace ECS
 
         void MoveArchetype_Add(EntityId eId, EntityRecord& r, Archetype* destArchetype);
         void MoveArchetype_Remove(EntityId eId, EntityRecord& r, Archetype* destArchetype);
-
-        template<typename T>
-        void Set(EntityId eId, T&& c);
-
-        template<typename T>
-        T& Get(EntityId eId);
-
-        void Set(EntityId eId, EntityId cId, void* data);
-
-        void Set(EntityId eId, EntityId cId, const void* data);
-
-        void* Get(EntityId eId, EntityId cId);
 
         //NOTE: System store list of cache archetypes, but the list can be invalidated at runtime,
         //so I need to find a new way to re-validate this or rewrite this in a different way
